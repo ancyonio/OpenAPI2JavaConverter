@@ -90,8 +90,11 @@ jobs:
       - name: S7 Quality gates
         run: python -I -m o2j quality
 
-      - name: S7 Contract conformance
+      - name: S7 Required test cases (claimed by passing tests)
         run: python -I -m o2j verify --mode contract
+
+      - name: S7 Response conformance (every recorded response matches the spec)
+        run: python -I -m o2j verify --mode conformance
 
       - name: S8 Report
         if: always()

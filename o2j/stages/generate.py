@@ -306,9 +306,13 @@ def _tests_context(
         claimed = {m.split(":", 2)[2] for c in operation.cases for m in c.markers}
         claimed |= {case for case, flag in SECURITY_CASES.items() if getattr(op, flag)}
         claimed |= ems_claimed.get(op.operation_id, set())
-        for case in operation.cases:
+        for contract_case in operation.cases:
             cases.append(
-                {"method_name": case.method_name, "markers": case.markers, "lines": case.lines}
+                {
+                    "method_name": contract_case.method_name,
+                    "markers": contract_case.markers,
+                    "lines": contract_case.lines,
+                }
             )
         generated += len([c for c in op.required_tests if c in claimed])
         for case in op.required_tests:

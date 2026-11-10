@@ -33,7 +33,7 @@ from pathlib import Path
 
 import pytest
 
-from o2j.config import load_config
+from o2j.config import EmsConfig, EmsRouteConfig, load_config
 from o2j.stages.generate import generate
 from o2j.stages.ingest import ingest
 from o2j.stages.normalize import normalize
@@ -60,6 +60,30 @@ MATRIX = [
     ("01-petstore-3.0", 21, "spring-boot-4", "4.0.9"),
     ("02-petstore-3.1", 21, "spring-boot-4", None),
 ]
+
+
+# Two legacy TIBCO EMS request queues bridged onto the 3.1 fixture, covering both correlation
+# modes and both parameter sources that need care (JMS header and JSON body pointer).
+EMS = EmsConfig(
+    enabled=True,
+    reply_timeout_ms=1500,
+    routes=[
+        EmsRouteConfig(
+            destination="ORDERS.CREATE.REQUEST",
+            operation="createOrder",
+            correlation="message-id",
+            params={"Idempotency-Key": "jms:JMSMessageID"},
+            faults={400: "ORD-INVALID", 409: "ORD-DUPLICATE"},
+        ),
+        EmsRouteConfig(
+            destination="ORDERS.GET.REQUEST",
+            operation="getOrder",
+            correlation="correlation-id",
+            params={"orderId": "json:/orderId"},
+            faults={404: "ORD-NOT-FOUND"},
+        ),
+    ],
+)
 
 
 def _jdk_major(java_home: str | None) -> int | None:
@@ -101,6 +125,8 @@ def test_generated_service_builds_and_security_contract_holds(
     cfg.target.spring_profile = profile  # type: ignore[assignment]
     if boot is not None:
         cfg.versions.spring_boot_4 = boot
+    if fixture == "02-petstore-3.1":
+        cfg.ems = EMS
     env, jdk_used = _build_env(java)
     print(f"[{fixture} java{java} {profile} Boot {cfg.spring_boot_version}] {jdk_used}")
 
@@ -128,14 +154,14 @@ def test_generated_service_builds_and_security_contract_holds(
     )
     assert build.returncode == 0, "\n".join(build.stdout.splitlines()[-60:])
 
-    # The business cases are the test author's job; the security cases are not.
-    report = verify(cfg, "contract", work, root=tmp_path)
-    security_cases = [
-        f"{op.operation_id}:{case}"
-        for op in generation_plan.operations
-        for case in op.required_tests
-        if case in ("slice:unauthenticated-401", "slice:wrong-scope-403")
-    ]
-    assert security_cases, "fixture should have secured operations"
-    unmet = [d for d in report.differences if any(d.startswith(c) for c in security_cases)]
+    # Every response the tests produced must match the spec.
+    conformance = verify(cfg, "conformance", work, root=tmp_path)
+    assert conformance.passed, conformance.differences
+
+    # Everything o2j generated must pass. What is left is exactly the business cases o2j
+    # scaffolds as @Disabled skeletons, which a person (or agent) still has to write.
+    contract = verify(cfg, "contract", work, root=tmp_path)
+    unmet = [d for d in contract.differences if not d.endswith(" skipped")]
     assert not unmet, unmet
+    if fixture == "02-petstore-3.1":
+        assert not [d for d in contract.differences if ":ems:" in d]

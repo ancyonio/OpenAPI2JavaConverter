@@ -251,7 +251,7 @@ TYPED_STRING_FORMATS = frozenset({"uuid", "date", "date-time"})
 def is_typed_param(param: Any) -> bool:
     """Whether a parameter binds to a Java type that rejects arbitrary text."""
     schema = param.get("schema") if hasattr(param, "get") else None
-    if not hasattr(schema, "get"):
+    if schema is None or not hasattr(schema, "get"):
         return False
     kind = schema.get("type")
     if isinstance(kind, (list, CommentedSeq)):

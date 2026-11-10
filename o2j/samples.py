@@ -165,7 +165,8 @@ class Sampler:
 
     def _object(self, schema: dict[str, Any], for_request: bool, depth: int) -> dict[str, Any]:
         out: dict[str, Any] = {}
-        props = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
+        raw = schema.get("properties")
+        props: dict[str, Any] = raw if isinstance(raw, dict) else {}
         for name, prop in props.items():
             resolved = self.resolve(prop)
             if for_request and resolved.get("readOnly"):
@@ -256,10 +257,7 @@ def _string(schema: dict[str, Any]) -> str:
     if isinstance(fmt, str) and fmt in FORMAT_SAMPLES:
         return str(FORMAT_SAMPLES[fmt])
     pattern = schema.get("pattern")
-    if isinstance(pattern, str):
-        value = from_pattern(pattern)
-    else:
-        value = "o2j-sample"
+    value = from_pattern(pattern) if isinstance(pattern, str) else "o2j-sample"
     low = int(schema.get("minLength", 0))
     high = schema.get("maxLength")
     if len(value) < low:
@@ -292,7 +290,7 @@ def from_pattern(pattern: str) -> str:
         match = _TOKEN.match(body, i)
         if not match:
             raise SampleError(f"unsupported pattern construct at {body[i:]!r}")
-        token = match.group(0)
+        piece = match.group(0)
         i = match.end()
         count = 1
         quant = re.match(r"\{(\d+)(?:,(\d*))?\}|[?*+]", body[i:])
@@ -305,29 +303,27 @@ def from_pattern(pattern: str) -> str:
                 count = 1
             else:
                 count = int(quant.group(1))
-        out.append(_token_char(token) * count)
+        out.append(_token_char(piece) * count)
     value = "".join(out)
     if not re.fullmatch(pattern.lstrip("^").rstrip("$") if pattern else "", value):
         raise SampleError(f"pattern sampler produced {value!r} for {pattern!r}")
     return value
 
 
-def _token_char(token: str) -> str:
-    if token == r"\d":
-        return "1"
-    if token == r"\w":
-        return "a"
-    if token == r"\s":
-        return " "
-    if token.startswith("\\"):
-        return token[1]
-    if token.startswith("["):
-        inner = token[1:-1]
+def _token_char(piece: str) -> str:
+    """One concrete string matching a single regex piece (see _TOKEN)."""
+    escapes = {r"\d": "1", r"\w": "a", r"\s": " "}
+    if piece in escapes:
+        return escapes[piece]
+    if piece.startswith("\\"):
+        return piece[1]
+    if piece.startswith("["):
+        inner = piece[1:-1]
         if inner.startswith("^"):
             raise SampleError("negated character classes are not sampled")
         first = inner[0] if inner[0] != "\\" else inner[1]
         return {"d": "1", "w": "a"}.get(first, first) if inner[0] == "\\" else first
-    if token.startswith("("):
-        inner = token[1:-1]
+    if piece.startswith("("):
+        inner = piece[1:-1]
         return inner[2:] if inner.startswith("?:") else inner
-    return token
+    return piece

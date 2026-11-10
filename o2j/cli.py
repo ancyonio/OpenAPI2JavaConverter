@@ -539,12 +539,24 @@ def run(
             work.write_json("gate", "quality-report.json", quality_report)
             coverage_report = coverage_stage.coverage(cfg)
             work.write_json("gate", "coverage-report.json", coverage_report)
+            contract = verify_stage.verify(cfg, "contract", work)
+            conforms = verify_stage.verify(cfg, "conformance", work)
+
+            def verdict(ok: bool) -> str:
+                return "passed" if ok else "FAILED"
+
             _err(
-                f"[S7] gates      quality "
-                f"{'passed' if quality_report.gate.passed else 'FAILED'}, coverage "
-                f"{'passed' if coverage_report.gate.passed else 'FAILED'}"
+                f"[S7] gates      quality {verdict(quality_report.gate.passed)}, coverage "
+                f"{verdict(coverage_report.gate.passed)}, required tests "
+                f"{verdict(contract.passed)}, conformance {verdict(conforms.passed)}"
             )
-            if not (quality_report.gate.passed and coverage_report.gate.passed):
+            for detail in (contract, conforms):
+                if not detail.passed:
+                    _err(f"     {detail.mode}: {detail.detail}")
+            if not all(
+                (quality_report.gate.passed, coverage_report.gate.passed,
+                 contract.passed, conforms.passed)
+            ):
                 raise typer.Exit(int(ExitCode.GATE_FAILED))
 
         if "report" in selected:

@@ -148,7 +148,7 @@ def _check_exchange(
     if media not in content:
         return [f"content type {media or 'none'} is not declared (declared: {', '.join(content)})"]
     schema = content[media].get("schema")
-    if not isinstance(schema, dict) or not (media.endswith("json")):
+    if not isinstance(schema, dict) or not media or not media.endswith("json"):
         return []
     try:
         value = json.loads(body)

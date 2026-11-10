@@ -263,8 +263,10 @@ def o2j_verify(mode: str = "determinism", static: bool = False) -> dict[str, Any
 
     Read-only. `determinism` normalizes twice and diffs; `drift` compares the recorded spec
     hash with the current one; `contract` checks every required case is claimed, for its
-    operation, by a test method that passed in the last `mvn verify`. `static=True` checks
-    only that the markers sit on test methods - useful while writing tests, not as a gate.
+    operation, by a test method that passed in the last `mvn verify`; `conformance` checks
+    every response the tests recorded against the spec (status, content type, schema).
+    `static=True` checks only that contract markers sit on test methods - useful while
+    writing tests, not as a gate.
     """
     try:
         result = verify_stage.verify(_cfg(), mode, WorkDir(), require_results=not static)

@@ -98,3 +98,28 @@ quality:
   sonar:
     enabled: false
     project_key: ""
+
+# TIBCO EMS request/reply queues this service replaces. When enabled, o2j validates the mapping
+# against the spec at plan time and generates an EMS bridge (EmsBridge) that keeps legacy
+# consumers working while they move to HTTP, plus a contract test for it on an embedded broker.
+# See README, "Replacing TIBCO EMS queues".
+ems:
+  enabled: false
+  reply_timeout_ms: 5000           # default reply deadline; a slower call replies 504/TIMEOUT
+  routes: []
+  # routes:
+  #   - destination: ORDERS.CREATE.REQUEST
+  #     operation: createOrder
+  #     correlation: message-id      # message-id | correlation-id
+  #     reply_timeout_ms: 3000
+  #     params:                      # HTTP parameter -> where it comes from in the message
+  #       Idempotency-Key: jms:JMSMessageID
+  #     faults:                      # HTTP status -> legacy fault code consumers expect
+  #       409: ORD-DUPLICATE
+  #   - destination: ORDERS.GET.REQUEST
+  #     operation: getOrder
+  #     correlation: correlation-id
+  #     params:
+  #       orderId: json:/orderId     # JSON pointer into the message body
+  #     faults:
+  #       404: ORD-NOT-FOUND

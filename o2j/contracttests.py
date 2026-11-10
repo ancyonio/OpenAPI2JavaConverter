@@ -489,7 +489,9 @@ def derive_ems(plan: GenerationPlan, spec: dict[str, Any]) -> dict[str, Operatio
         oid = op.operation_id
         ident = security.java_identifier(oid)
         dest = security.java_identifier(route.destination)
-        reply_ok = "assertThat(exchange.reply()).as(" + _j("reply within the wait") + ").isNotNull();"
+        reply_ok = (
+            "assertThat(exchange.reply()).as(" + _j("reply within the wait") + ").isNotNull();"
+        )
         status_is = "assertThat(exchange.reply().getIntProperty(EmsBridge.STATUS)).isEqualTo({});"
         fault_is = "assertThat(exchange.reply().getStringProperty(EmsBridge.FAULT)).isEqualTo({});"
 

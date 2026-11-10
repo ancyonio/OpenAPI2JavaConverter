@@ -35,9 +35,12 @@ accommodating it hides the defect and keeps it.
    `mode: contract` checks every required case is claimed by a test method that passed, so an
    unmarked test does not count even if it is correct, and a marker off a test method does not
    count at all. Use `static: true` while writing; the gate runs without it.
-3. Security cases (`slice:unauthenticated-401`, `slice:wrong-scope-403`) are already covered
-   by the managed `OpenApiSecurityContractTest`. Do not duplicate them, and never edit that
-   file or `OpenApiSecurityRules` - o2j regenerates both from the spec.
+3. o2j already generates every case the spec determines (`OpenApiSecurityContractTest`,
+   `contract/*ContractTest`, `ems/EmsBridgeContractTest`). Do not duplicate them and never edit
+   them - they are regenerated. Your work is the `@Disabled` skeletons in `*ServiceTest` and
+   `*BehaviourTest`: write each one, remove `@Disabled`, keep its marker. Afterwards run
+   `o2j_verify` with `mode: conformance` too - your tests' responses are checked against the
+   spec.
 4. Write bottom-up: mapper, service, slice, integration, contract.
 5. `o2j_run_tests` after each class.
 6. `o2j_coverage_report` — add cases for behaviour that is not asserted, not for lines that are

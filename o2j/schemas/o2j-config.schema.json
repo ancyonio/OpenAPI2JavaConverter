@@ -29,6 +29,86 @@
       "title": "CoverageConfig",
       "type": "object"
     },
+    "EmsConfig": {
+      "additionalProperties": false,
+      "description": "TIBCO EMS request/reply queues the REST service replaces (optional).",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "reply_timeout_ms": {
+          "default": 5000,
+          "title": "Reply Timeout Ms",
+          "type": "integer"
+        },
+        "routes": {
+          "items": {
+            "$ref": "#/$defs/EmsRouteConfig"
+          },
+          "title": "Routes",
+          "type": "array"
+        }
+      },
+      "title": "EmsConfig",
+      "type": "object"
+    },
+    "EmsRouteConfig": {
+      "additionalProperties": false,
+      "description": "One TIBCO EMS request queue served by one spec operation (see o2j/ems.py).",
+      "properties": {
+        "destination": {
+          "title": "Destination",
+          "type": "string"
+        },
+        "operation": {
+          "title": "Operation",
+          "type": "string"
+        },
+        "correlation": {
+          "default": "message-id",
+          "enum": [
+            "message-id",
+            "correlation-id"
+          ],
+          "title": "Correlation",
+          "type": "string"
+        },
+        "reply_timeout_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reply Timeout Ms"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "faults": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Faults",
+          "type": "object"
+        }
+      },
+      "required": [
+        "destination",
+        "operation"
+      ],
+      "title": "EmsRouteConfig",
+      "type": "object"
+    },
     "GenerationConfig": {
       "additionalProperties": false,
       "properties": {
@@ -512,6 +592,9 @@
     },
     "generation": {
       "$ref": "#/$defs/GenerationConfig"
+    },
+    "ems": {
+      "$ref": "#/$defs/EmsConfig"
     },
     "quality": {
       "$ref": "#/$defs/QualityConfig"

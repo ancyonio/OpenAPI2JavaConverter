@@ -15,7 +15,9 @@ meaningful tests need judgement that templates cannot express. So the work is sp
 |---|---|---|
 | DTOs, API interfaces, controllers, config | `openapi-generator` | byte-identical, reproducible |
 | Services, mappers, error handling | Copilot agents | reviewed |
-| JUnit 5 / Mockito tests, fixtures | Copilot agents | reviewed, gated on coverage **and** mutation score |
+| Contract tests: security, validation, error mapping, page limits, EMS bridge | `o2j` (regenerated) | derived from the spec, always current |
+| Business-rule tests (JUnit 5 / Mockito) | Copilot agents, from o2j skeletons | reviewed, gated on coverage **and** mutation score |
+| Response conformance | `o2j verify --mode conformance` | every recorded response checked against the spec |
 | Validation, normalization, gating, reporting | `o2j` Python CLI | deterministic |
 
 **Generated code is never hand-edited.** It lives in `target/generated-sources` and is
@@ -62,6 +64,41 @@ Exit codes: `0` ok · `2` config · `3` validation · `4` load-bearing loss · `
 operation with a `// o2j:<operationId>:<case>` marker, and `o2j verify --mode contract` checks
 that every case is claimed by a test that ran and passed in the Surefire/Failsafe reports - a
 marker in a comment that is not on a test, or on a failing test, does not count.
+
+### Generated tests, and what is left to people
+
+o2j writes every required case the spec fully determines, into files it regenerates on each
+run so they cannot drift:
+
+- `OpenApiSecurityContractTest`: 401 and 403 for every secured operation; public ones are
+  not refused.
+- `<Api>ContractTest`: one `@WebMvcTest` per resource, with the delegate replaced by a stub.
+  A valid request gets the declared status and content type, and reaches the delegate once.
+  Each of these is refused with 400 Problem Details *before* the delegate runs: a body
+  missing a required field, malformed JSON, an unknown enum value, a missing required
+  parameter, a wrongly-typed one, a page size over its maximum. A `NotFoundException`
+  becomes 404. Requests are synthesized from the schemas and validated against them first;
+  when no valid sample can be built, the case is left for a person rather than guessed.
+- `EmsBridgeContractTest`, when EMS queues are mapped (below).
+
+What needs business knowledge - the rule behind `unit:happy-path`, what an empty or last page
+holds, which duplicate is a 409, the value of a `Location` header - is scaffolded once as
+`@Disabled` methods in `<Service>Test` (Mockito) and `<Api>BehaviourTest` (slice, real
+delegate and mapper, mocked service), each already carrying its marker. The contract gate keeps
+counting them as missing until someone writes them and removes `@Disabled`. `o2j generate`
+prints the split, for example *34 required cases generated, 20 left as skeletons* for the 3.1
+petstore with two EMS queues.
+
+### Response conformance
+
+A test that passes says nothing about whether the response matched the contract: a slice test
+checking the status passes even when the body is missing a required field. Every generated
+service has a test-scope `O2jConformanceRecorder` filter that records each HTTP exchange any
+MockMvc or `@SpringBootTest` test produces, and `o2j verify --mode conformance` checks each
+one against the spec: status declared, content type declared, body valid against the JSON
+Schema (formats included). `contract:response-schema` only counts for an operation when its
+recorded 2xx responses conform. The more real behaviour the suite exercises, the more of the
+service's real output is checked.
 
 The security cases are not left to an agent. o2j regenerates `OpenApiSecurityRules` (one
 Spring Security rule per operation, from the spec's `security` requirements) and
@@ -166,6 +203,44 @@ Tool lists are the privilege boundary — `yaml-validator` holds no `edit` on `s
 `test-author` cannot touch production code, `spec-normalizer` has no `edit` at all. Copilot
 *silently ignores* an unrecognised tool name, so a typo removes a capability without failing;
 `tests/unit/test_copilot_assets.py` lints for that.
+
+## Replacing TIBCO EMS queues
+
+The REST service replaces EMS request/response queues, but their consumers do not all move on
+the same day. Map the legacy queues in `o2j.yaml` (see the commented example there):
+
+```yaml
+ems:
+  enabled: true
+  routes:
+    - destination: ORDERS.CREATE.REQUEST
+      operation: createOrder
+      correlation: message-id          # reply JMSCorrelationID = request JMSMessageID
+      params: { Idempotency-Key: "jms:JMSMessageID" }
+      faults: { 409: ORD-DUPLICATE }   # HTTP status -> fault code consumers already handle
+```
+
+`o2j plan` validates the mapping against the spec and fails the run (exit 2) on an unknown
+operation or parameter, a fault status the operation never returns, a bad parameter source or
+a duplicated queue. Parameter sources: `property:<name>` (default: the parameter name with
+non-identifier characters as `_`), `jms:JMSMessageID`, `jms:JMSCorrelationID`,
+`json:/<pointer>` into the message body, `literal:<value>`.
+
+o2j then generates `EmsRoutes` (the validated table) and `EmsBridge`, which listens on each
+queue, makes the HTTP call the spec describes **through the service's own HTTP stack** - so
+security, validation, error mapping and correlation ids apply exactly as for a direct caller -
+and replies on `JMSReplyTo` with the response body, the configured correlation, `o2j_status`,
+and for errors `o2j_fault` (the mapped code, `HTTP_<status>`, `TIMEOUT` past the reply
+deadline, `UNAVAILABLE`). Expired requests are dropped as EMS would; failures inside the bridge
+still reply, so no requester is left waiting. `EmsBridgeContractTest` proves each route end to
+end on an embedded Artemis broker: correlated reply, every mapped fault, the timeout.
+
+The bridge is enabled per deployment (`O2J_EMS_ENABLED=true`) and is removed when the last
+consumer has moved to HTTP. In production it needs TIBCO's Jakarta JMS client and a
+`TibjmsConnectionFactory` bean: the client is not on Maven Central, so it comes from your
+internal repository. `EmsBridgeCredentials` (yours) supplies the bridge's bearer token: replace
+the static token with a client-credentials flow before production. Payloads are JSON; XML
+messages need a transformation step that this bridge does not provide.
 
 ## Two constraints to know about
 

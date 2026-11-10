@@ -39,6 +39,93 @@
       "title": "PlanTarget",
       "type": "object"
     },
+    "PlannedEmsParam": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "in": {
+          "title": "In",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "in",
+        "source"
+      ],
+      "title": "PlannedEmsParam",
+      "type": "object"
+    },
+    "PlannedEmsRoute": {
+      "additionalProperties": false,
+      "description": "An EMS request queue bridged onto one operation, validated against the spec.",
+      "properties": {
+        "destination": {
+          "title": "Destination",
+          "type": "string"
+        },
+        "operationId": {
+          "title": "Operationid",
+          "type": "string"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "correlation": {
+          "enum": [
+            "message-id",
+            "correlation-id"
+          ],
+          "title": "Correlation",
+          "type": "string"
+        },
+        "replyTimeoutMs": {
+          "title": "Replytimeoutms",
+          "type": "integer"
+        },
+        "hasBody": {
+          "title": "Hasbody",
+          "type": "boolean"
+        },
+        "params": {
+          "items": {
+            "$ref": "#/$defs/PlannedEmsParam"
+          },
+          "title": "Params",
+          "type": "array"
+        },
+        "faults": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Faults",
+          "type": "object"
+        }
+      },
+      "required": [
+        "destination",
+        "operationId",
+        "method",
+        "path",
+        "correlation",
+        "replyTimeoutMs",
+        "hasBody"
+      ],
+      "title": "PlannedEmsRoute",
+      "type": "object"
+    },
     "PlannedOperation": {
       "additionalProperties": false,
       "properties": {
@@ -270,6 +357,13 @@
     },
     "riskScore": {
       "$ref": "#/$defs/RiskScore"
+    },
+    "emsRoutes": {
+      "items": {
+        "$ref": "#/$defs/PlannedEmsRoute"
+      },
+      "title": "Emsroutes",
+      "type": "array"
     }
   },
   "required": [

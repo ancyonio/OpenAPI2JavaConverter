@@ -47,6 +47,16 @@
       },
       "title": "Command",
       "type": "array"
+    },
+    "generatedCases": {
+      "default": 0,
+      "title": "Generatedcases",
+      "type": "integer"
+    },
+    "pendingCases": {
+      "default": 0,
+      "title": "Pendingcases",
+      "type": "integer"
     }
   },
   "required": [

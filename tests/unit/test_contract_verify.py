@@ -6,6 +6,7 @@ distinct case satisfied all 47 required cases of the 3.1 petstore without a sing
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -52,6 +53,30 @@ def _report(project: Path, cls: str, cases: dict[str, str]) -> None:
         rows.append(f'<testcase name="{name}" classname="{PKG}.{cls}">{inner}</testcase>')
     (project / f"target/surefire-reports/TEST-{PKG}.{cls}.xml").write_text(
         f'<testsuite name="{PKG}.{cls}">{"".join(rows)}</testsuite>', encoding="utf-8"
+    )
+
+
+PET = {"id": "p1", "name": "Rex", "kind": "DOG"}
+
+
+def _record(project: Path, exchanges: list[dict[str, object]]) -> None:
+    """Write what O2jConformanceRecorder writes during a real test run."""
+    out = project / "target/o2j-conformance"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "exchanges.jsonl").write_text(
+        "".join(json.dumps(e) + "\n" for e in exchanges), encoding="utf-8"
+    )
+
+
+def _conforming(project: Path) -> None:
+    _record(
+        project,
+        [
+            {"method": "GET", "path": "/v1/pets", "status": 200,
+             "contentType": "application/json", "body": json.dumps([PET])},
+            {"method": "POST", "path": "/v1/pets", "status": 201,
+             "contentType": "application/json", "body": json.dumps(PET)},
+        ],
     )
 
 
@@ -115,6 +140,7 @@ class TestHonestSuite:
     ) -> None:
         _java(project, "AllTest", _all_markers_test(petstore))
         _report(project, "AllTest", {"covers": "passed"})
+        _conforming(project)
         report = verify(cfg, "contract", work, root=project)
         assert report.passed, report.differences
 
@@ -126,6 +152,7 @@ class TestHonestSuite:
         _java(project, "AlsoTest", _all_markers_test(petstore).replace("AllTest", "AlsoTest"))
         _report(project, "AllTest", {"covers": "failure"})
         _report(project, "AlsoTest", {"covers": "passed"})
+        _conforming(project)
         assert verify(cfg, "contract", work, root=project).passed
 
 
@@ -198,3 +225,27 @@ class TestReports:
         _report(project, "STest", {"s": "skipped"})
         outcome = read_results([project / "target/surefire-reports"])[(f"{PKG}.STest", "s")]
         assert outcome.status == "skipped" and not outcome.passed
+
+
+class TestResponseSchemaNeedsConformingOutput:
+    """contract:response-schema is about what the service returned, not that a test passed."""
+
+    def test_passing_test_with_nonconforming_response_fails(
+        self, cfg: O2JConfig, work: WorkDir, project: Path, petstore: GenerationPlan
+    ) -> None:
+        _java(project, "AllTest", _all_markers_test(petstore))
+        _report(project, "AllTest", {"covers": "passed"})
+        broken = {k: v for k, v in PET.items() if k != "kind"}  # kind is required
+        _record(
+            project,
+            [
+                {"method": "GET", "path": "/v1/pets", "status": 200,
+                 "contentType": "application/json", "body": json.dumps([PET])},
+                {"method": "POST", "path": "/v1/pets", "status": 201,
+                 "contentType": "application/json", "body": json.dumps(broken)},
+            ],
+        )
+        report = verify(cfg, "contract", work, root=project)
+        assert not report.passed
+        assert any(d.startswith("createPet:contract:response-schema") for d in report.differences)
+
