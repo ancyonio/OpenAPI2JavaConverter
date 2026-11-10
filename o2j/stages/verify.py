@@ -18,7 +18,6 @@ import hashlib
 import json
 import tempfile
 from pathlib import Path
-
 from typing import Any
 
 from o2j import conformance

@@ -24,7 +24,7 @@ from urllib.parse import quote
 
 from o2j import security
 from o2j.models import GenerationPlan, PlannedOperation
-from o2j.samples import Sampler, SampleError
+from o2j.samples import SampleError, Sampler
 from o2j.stages.plan import is_typed_param
 
 JSON_TYPES = ("application/json", "application/problem+json")
@@ -433,9 +433,7 @@ def _j(text: str | None) -> str:
             out.append("\\r")
         elif ch == "\t":
             out.append("\\t")
-        elif ord(ch) < 0x20 or ord(ch) > 0x7E:
-            out.append(f"\\u{ord(ch):04x}")
-        elif ch in "{}" and escape_braces:
+        elif ord(ch) < 0x20 or ord(ch) > 0x7E or (ch in "{}" and escape_braces):
             out.append(f"\\u{ord(ch):04x}")
         else:
             out.append(ch)
