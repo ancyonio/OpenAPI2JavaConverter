@@ -21,6 +21,7 @@ Its `references/required-cases.md` explains the case derivation and the marker c
 
 ## Scope
 
+Your files are under `generated_Code/<service>/src/test/java`.
 You must **not** modify production code. If a class cannot be tested without a production
 change, say precisely what change is needed and why, and stop. Do not make it yourself, and
 never weaken a test to fit untestable code — untestable code is a design defect, and

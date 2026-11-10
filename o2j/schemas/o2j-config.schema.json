@@ -191,6 +191,11 @@
           "default": "target/generated-sources/openapi",
           "title": "Output Dir",
           "type": "string"
+        },
+        "service_root": {
+          "default": "generated_Code",
+          "title": "Service Root",
+          "type": "string"
         }
       },
       "title": "GenerationConfig",
@@ -229,7 +234,7 @@
       "additionalProperties": false,
       "properties": {
         "input": {
-          "default": "openapi/spec.raw.yaml",
+          "default": "openapi",
           "title": "Input",
           "type": "string"
         },

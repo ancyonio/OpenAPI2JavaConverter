@@ -42,7 +42,7 @@ def verify(
     require_results: bool = True,
 ) -> VerifyReport:
     work = work or WorkDir()
-    project = Path(root) if root else cfg.project_root
+    project = Path(root) if root else cfg.service_dir
 
     if mode == "determinism":
         return _verify_determinism(cfg, work)
@@ -61,7 +61,7 @@ def _verify_determinism(cfg: O2JConfig, work: WorkDir) -> VerifyReport:
     """Normalize twice into separate directories and compare the canonical output."""
     source = work.path("ingest", "spec.raw.yaml", create=False)
     if not source.is_file():
-        source = cfg.project_root / cfg.openapi.input
+        source = cfg.default_spec()
     if not source.is_file():
         return VerifyReport(
             mode="determinism", passed=False, detail=f"no spec to verify at {source}"

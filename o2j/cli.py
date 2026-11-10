@@ -19,7 +19,7 @@ import typer
 from pydantic import BaseModel
 
 from o2j import __version__
-from o2j.config import load_config
+from o2j.config import O2JConfig, load_config, resolve_specs, service_slug
 from o2j.errors import ExitCode, O2JError
 from o2j.models import GenerationPlan
 from o2j.stages import coverage as coverage_stage
@@ -433,30 +433,100 @@ def report(
     _emit(result, as_json)
 
 
+STAGE_ORDER = ["ingest", "validate", "normalize", "plan", "generate", "gate", "report"]
+
+
 @app.command()
 def run(
-    spec: Annotated[Path | None, typer.Argument(help="Spec path.")] = None,
+    spec: Annotated[
+        Path | None,
+        typer.Argument(
+            help="A spec file, or a folder whose *.yaml/*.yml files each become a service. "
+            "Defaults to `openapi.input` (the openapi/ folder)."
+        ),
+    ] = None,
     config: ConfigOpt = None,
     work_dir: WorkOpt = None,
     java: Annotated[int | None, typer.Option(help="Override the target Java version.")] = None,
     from_stage: Annotated[str, typer.Option("--from", help="First stage to run.")] = "ingest",
     to_stage: Annotated[str, typer.Option("--to", help="Last stage to run.")] = "report",
+    only: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--only", help="Folder mode: convert only these specs (file name or service name)."
+        ),
+    ] = None,
     run_generator: Annotated[
         bool, typer.Option("--run-generator/--no-run-generator")
     ] = True,
 ) -> None:
-    """Run the pipeline from one stage to another, stopping at the first failed gate."""
+    """Run the pipeline from one stage to another, stopping at the first failed gate.
+
+    Given a folder, every *.yaml / *.yml in it is converted into its own service under
+    `generation.service_root` (generated_Code/), named after the spec file, with its stage
+    artifacts in `<work-dir>/<service>/`. A failed spec does not stop the others.
+    """
     cfg = _load(config)
     if java is not None:
         cfg.target.java_version = java
-    work = WorkDir(work_dir)
 
-    order = ["ingest", "validate", "normalize", "plan", "generate", "gate", "report"]
-    if from_stage not in order or to_stage not in order:
-        _err(f"error: stages must be one of {', '.join(order)}")
+    if from_stage not in STAGE_ORDER or to_stage not in STAGE_ORDER:
+        _err(f"error: stages must be one of {', '.join(STAGE_ORDER)}")
         raise typer.Exit(int(ExitCode.USAGE))
-    selected = order[order.index(from_stage) : order.index(to_stage) + 1]
+    selected = STAGE_ORDER[STAGE_ORDER.index(from_stage) : STAGE_ORDER.index(to_stage) + 1]
 
+    source = spec if spec is not None else cfg.input_path()
+    if not source.is_dir():
+        # One spec: the service identity comes from o2j.yaml, as for the stage commands.
+        code = _run_one(cfg, spec, WorkDir(work_dir), selected, run_generator)
+        if code:
+            raise typer.Exit(code)
+        _err(f"\npipeline complete -> {cfg.service_dir}")
+        return
+
+    specs = resolve_specs(source)
+    if only:
+        wanted = set(only)
+        specs = [s for s in specs if {s.name, s.stem, service_slug(s)} & wanted]
+    if not specs:
+        _err(f"error: no *.yaml or *.yml specs in {source}")
+        raise typer.Exit(int(ExitCode.USAGE))
+
+    slugs = [service_slug(s) for s in specs]
+    clashes = sorted({slug for slug in slugs if slugs.count(slug) > 1})
+    if clashes:
+        _err(f"error: several specs map to the same service name: {', '.join(clashes)}")
+        raise typer.Exit(int(ExitCode.USAGE))
+
+    work_root = WorkDir(work_dir).root
+    outcomes: list[tuple[str, int]] = []
+    for path in specs:
+        slug = service_slug(path)
+        spec_cfg = cfg.model_copy(deep=True)
+        spec_cfg.service.name = slug
+        spec_cfg.service.artifact_id = slug
+        if len(specs) > 1 and spec_cfg.ems.enabled:
+            # EMS routes name the operations of one spec; applied to every spec they would fail.
+            _err(f"[{slug}] ems mapping skipped: it applies to single-spec runs only")
+            spec_cfg.ems.enabled = False
+        _err(f"\n=== {path.name} -> {spec_cfg.service_dir}")
+        code = _run_one(spec_cfg, path, WorkDir(work_root / slug), selected, run_generator)
+        outcomes.append((slug, code))
+
+    _err("\nsummary")
+    for slug, code in outcomes:
+        _err(f"  {slug:30} {'ok' if code == 0 else f'FAILED (exit {code})'}")
+    failed = [code for _, code in outcomes if code]
+    if failed:
+        raise typer.Exit(max(failed))
+    root = cfg.project_root / cfg.generation.service_root
+    _err(f"\npipeline complete: {len(outcomes)} service(s) in {root}")
+
+
+def _run_one(
+    cfg: O2JConfig, spec: Path | None, work: WorkDir, selected: list[str], run_generator: bool
+) -> int:
+    """Run the selected stages for one spec; return its exit code (0 when every gate passes)."""
     try:
         if "ingest" in selected:
             ingested = ingest_stage.ingest(cfg, spec, work)
@@ -471,7 +541,7 @@ def run(
             )
             if not validation.gate.passed:
                 _err("     gate FAILED - fix the spec before generating")
-                raise typer.Exit(int(ExitCode.VALIDATION_FAILED))
+                return int(ExitCode.VALIDATION_FAILED)
 
         if "normalize" in selected:
             normalized = normalize_stage.normalize(cfg, spec, None, work)
@@ -499,7 +569,7 @@ def run(
                         if finding.severity == "error":
                             _err(f"     {finding.rule} {finding.pointer}: {finding.message}")
                     _err("     gate FAILED on the canonical spec")
-                    raise typer.Exit(int(ExitCode.VALIDATION_FAILED))
+                    return int(ExitCode.VALIDATION_FAILED)
 
         if "plan" in selected:
             planned = plan_stage.plan(cfg, None, work)
@@ -522,7 +592,7 @@ def run(
             _err(
                 f"[S4] generate   {len(generated.files)} contract file(s), "
                 f"{len(generated.scaffolded)} scaffolded, "
-                f"{len(generated.conflicts)} conflict(s)"
+                f"{len(generated.conflicts)} conflict(s) -> {cfg.service_dir}"
             )
             _err(
                 f"[S4] tests      {generated.generated_cases} required case(s) generated, "
@@ -532,7 +602,7 @@ def run(
             determinism = verify_stage.verify(cfg, "determinism", work)
             _err(f"[S4] determinism {'passed' if determinism.passed else 'FAILED'}")
             if not determinism.passed:
-                raise typer.Exit(int(ExitCode.DRIFT_FAILED))
+                return int(ExitCode.DRIFT_FAILED)
 
         if "gate" in selected:
             quality_report = quality_stage.quality(cfg)
@@ -557,16 +627,19 @@ def run(
                 (quality_report.gate.passed, coverage_report.gate.passed,
                  contract.passed, conforms.passed)
             ):
-                raise typer.Exit(int(ExitCode.GATE_FAILED))
+                return int(ExitCode.GATE_FAILED)
 
         if "report" in selected:
             manifest = report_stage.report(cfg, work)
             _err(f"[S8] report     {manifest.operations} operation(s) recorded")
 
     except O2JError as exc:
-        _fail(exc)
+        _err(f"error: {exc.message}")
+        if exc.hint:
+            _err(f"hint:  {exc.hint}")
+        return int(exc.exit_code)
 
-    _err("\npipeline complete")
+    return 0
 
 
 skills_app = typer.Typer(

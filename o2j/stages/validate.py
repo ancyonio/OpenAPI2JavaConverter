@@ -39,7 +39,7 @@ def validate(
         else work.path("ingest", "spec.raw.yaml", create=False)
     )
     if not path.is_file():
-        path = cfg.project_root / cfg.openapi.input
+        path = cfg.default_spec()
 
     # Pass 1: structural. load_spec raises on malformed YAML and on duplicate keys.
     doc: CommentedMap = load_spec(path)

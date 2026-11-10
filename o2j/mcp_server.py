@@ -195,7 +195,7 @@ def o2j_run_tests(test_pattern: str | None = None) -> dict[str, Any]:
     Read-only with respect to source; it does write build output under `target/`.
     """
     cfg = _cfg()
-    project = cfg.project_root
+    project = cfg.service_dir
     mvn = shutil.which("mvn") or shutil.which("mvn.cmd")
     if mvn is None:
         return {"ok": False, "error": "Maven not on PATH"}

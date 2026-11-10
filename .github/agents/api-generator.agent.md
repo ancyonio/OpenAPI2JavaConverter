@@ -20,7 +20,8 @@ and how to handle regeneration over code humans have already edited.
 ## Procedure
 
 1. Read `generation-plan.json`. Do not re-derive the target.
-2. Call `o2j_generate_code`.
+2. Call `o2j_generate_code`. It writes the service to `generated_Code/<service>/`
+   (`<service>` is `service.artifact_id` in `o2j.yaml`), never to the repository root.
 3. Run `o2j_verify` with `mode: determinism`. It generates twice and diffs.
 4. Verify the layering invariant: nothing outside `..api..` and `..mapper..` imports
    `..api.model..`. Run the ArchUnit test if it exists.
@@ -29,8 +30,8 @@ and how to handle regeneration over code humans have already edited.
 
 ## Hard rules
 
-- Never edit anything under `target/generated-sources/`. To change generated output, change
-  the spec or the Mustache template in `o2j/templates/`.
+- Never edit anything under `generated_Code/<service>/target/generated-sources/`. To change
+  generated output, change the spec in `openapi/` or the Mustache template in `o2j/templates/`.
 - Never commit generated sources. They are build output and are git-ignored.
 - Never inline a version number. Every version comes from `o2j.yaml`.
 - `generateApiTests` and `generateModelTests` stay `false`. Generated test stubs assert nothing

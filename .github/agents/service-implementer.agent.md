@@ -24,7 +24,8 @@ mechanically.
 
 ## Scope
 
-`src/main/java` and `src/main/resources`. Not tests, not the spec, not generated sources.
+`generated_Code/<service>/src/main/java` and `generated_Code/<service>/src/main/resources`.
+Not tests, not the spec, not generated sources.
 
 ## Procedure
 

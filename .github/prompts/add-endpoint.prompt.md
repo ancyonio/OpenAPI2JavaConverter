@@ -4,7 +4,8 @@ agent: openapi-to-spring
 description: Add one operation to the spec, then regenerate, implement and test it.
 ---
 
-Add a new operation to `openapi/spec.raw.yaml` and carry it through to tested code.
+Add a new operation to `openapi/${input:specFile}` and carry it through to tested code in
+that spec's service, `generated_Code/<spec-file-name>/`.
 
 Operation: `${input:method}` `${input:path}`
 Purpose: `${input:purpose}`

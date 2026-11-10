@@ -105,7 +105,9 @@ class VersionsConfig(StrictModel):
 
 
 class OpenApiConfig(StrictModel):
-    input: str = "openapi/spec.raw.yaml"
+    # A single spec file, or a folder whose *.yaml / *.yml files are each converted into a
+    # service of their own by `o2j run` (see resolve_specs).
+    input: str = "openapi"
     canonical_version: str = "3.1.2"
     allow_remote_refs: bool = False
     remote_ref_allowlist: list[str] = Field(default_factory=list)
@@ -138,6 +140,9 @@ class GenerationConfig(StrictModel):
     annotation_library: Literal["swagger2", "none", "swagger1"] = "swagger2"
     template_overrides: str = "o2j/templates"
     output_dir: str = "target/generated-sources/openapi"
+    # Where generated services are written, relative to o2j.yaml: one subfolder per service,
+    # named after `service.artifact_id`. Each subfolder is a self-contained Maven project.
+    service_root: str = "generated_Code"
 
     @model_validator(mode="after")
     def _timestamp_must_be_hidden(self) -> GenerationConfig:
@@ -240,7 +245,60 @@ class O2JConfig(StrictModel):
 
     @property
     def project_root(self) -> Path:
+        """The directory holding o2j.yaml; spec inputs resolve against it."""
         return self.source_path.parent if self.source_path else Path.cwd()
+
+    @property
+    def service_dir(self) -> Path:
+        """Where this service's code is written: ``<service_root>/<artifact_id>``."""
+        return self.project_root / self.generation.service_root / self.service.artifact_id
+
+    def input_path(self) -> Path:
+        """``openapi.input`` resolved against the project root (a file or a folder)."""
+        return self.project_root / self.openapi.input
+
+    def default_spec(self) -> Path:
+        """The one spec a single-spec command works on when it is given no path.
+
+        ``openapi.input`` may name a folder; a single-spec command can only use it when the
+        folder holds exactly one spec, so it never guesses between several.
+        """
+        specs = resolve_specs(self.input_path())
+        if len(specs) == 1:
+            return specs[0]
+        if not specs:
+            return self.input_path()  # let the caller report "spec not found" on this path
+        raise ConfigError(
+            f"{self.input_path()} holds {len(specs)} specs; this command needs one",
+            hint="pass the spec path explicitly, or use `o2j run` to convert every spec",
+        )
+
+
+SPEC_SUFFIXES: tuple[str, ...] = (".yaml", ".yml")
+
+
+def resolve_specs(path: str | Path) -> list[Path]:
+    """The spec files at ``path``: the file itself, or every *.yaml / *.yml in a folder.
+
+    Only the folder's top level is read, in sorted order so batch runs are reproducible.
+    """
+    target = Path(path)
+    if target.is_dir():
+        return sorted(
+            p for p in target.iterdir() if p.is_file() and p.suffix.lower() in SPEC_SUFFIXES
+        )
+    return [target] if target.is_file() else []
+
+
+def service_slug(spec: str | Path) -> str:
+    """A Maven artifactId / folder name derived from a spec's file name.
+
+    ``Order API.v2.yaml`` -> ``order-api-v2``.
+    """
+    stem = Path(spec).stem.lower()
+    slug = "".join(c if c.isalnum() else "-" for c in stem)
+    slug = "-".join(part for part in slug.split("-") if part)
+    return slug or "service"
 
 
 def _yaml() -> YAML:

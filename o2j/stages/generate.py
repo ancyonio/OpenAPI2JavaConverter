@@ -107,7 +107,7 @@ def generate(
     """Render the POM and scaffolding, then invoke openapi-generator via Maven."""
     work = work or WorkDir()
     plan = plan or work.read_json("plan", "generation-plan.json", GenerationPlan)
-    root = Path(output_root) if output_root else cfg.project_root
+    root = Path(output_root) if output_root else cfg.service_dir
 
     canonical = work.path("normalize", "spec.canonical.yaml", create=False)
     if not canonical.is_file():

@@ -38,7 +38,10 @@ versions:
   cyclonedx: 2.9.1
 
 openapi:
-  input: openapi/spec.raw.yaml
+  # A single spec file, or a folder. `o2j run` converts every *.yaml / *.yml in the folder into
+  # its own service, named after the file (openapi/orders.yaml -> generated_Code/orders/).
+  # Single-stage commands (o2j ingest, validate, ...) need a file: pass it, or keep one spec here.
+  input: openapi
   canonical_version: "3.1.2"
   allow_remote_refs: false
   remote_ref_allowlist: []
@@ -68,7 +71,10 @@ generation:
   documentation_provider: springdoc
   annotation_library: swagger2
   template_overrides: o2j/templates
-  output_dir: target/generated-sources/openapi
+  output_dir: target/generated-sources/openapi   # inside each service folder
+  # Generated services land here, one Maven project per service: <service_root>/<artifact_id>/.
+  # Folder runs (`o2j run openapi`) use the spec's file name as the artifact_id.
+  service_root: generated_Code
 
 quality:
   coverage:

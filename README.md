@@ -20,10 +20,32 @@ meaningful tests need judgement that templates cannot express. So the work is sp
 | Response conformance | `o2j verify --mode conformance` | every recorded response checked against the spec |
 | Validation, normalization, gating, reporting | `o2j` Python CLI | deterministic |
 
-**Generated code is never hand-edited.** It lives in `target/generated-sources` and is
-rebuilt every time. An ArchUnit rule stops generated DTOs escaping the `api` and `mapper`
-packages, so the blast radius of a spec change is two packages instead of the whole service.
-That rule is what makes regeneration safe.
+**Generated code is never hand-edited.** It lives in each service's
+`generated_Code/<service>/target/generated-sources` and is rebuilt every time. An ArchUnit rule
+stops generated DTOs escaping the `api` and `mapper` packages, so the blast radius of a spec
+change is two packages instead of the whole service. That rule is what makes regeneration safe.
+
+## Folders: input and output
+
+| Folder | Role | Commit it? |
+|---|---|---|
+| `openapi/` | **Input.** Put the OpenAPI specs to convert here, one `*.yaml` or `*.yml` per service. | yes |
+| `generated_Code/<service>/` | **Output.** One self-contained Maven project per spec: `pom.xml`, `src/main/java`, `src/test/java`, `src/main/resources`, and `openapi/spec.canonical.yaml` (the exact spec the code was built from). | yes, except its `target/` |
+| `generated_Code/<service>/target/generated-sources/openapi` | DTOs, `*Api` interfaces and controllers from `openapi-generator`, rebuilt on every build. | no (git-ignored) |
+| `work/` | Stage artifacts: quarantined spec, reports, plan, manifest. In folder runs, `work/<service>/`. | no (git-ignored) |
+
+Both folders are set in `o2j.yaml`: `openapi.input` (a folder or a single file) and
+`generation.service_root`.
+
+How the service folder is named:
+
+- **Folder run** (`o2j run` or `o2j run openapi`): every spec becomes its own service, named
+  after the file. `openapi/orders.yaml` becomes `generated_Code/orders/` and
+  `openapi/Customer API.v2.yml` becomes `generated_Code/customer-api-v2/`. Two specs that map
+  to the same name stop the run before anything is written.
+- **Single spec** (`o2j run openapi/orders.yaml`, or the stage-by-stage commands below): the
+  service is `generated_Code/<service.artifact_id>/`, from `o2j.yaml`. Set `artifact_id` to the
+  spec's name (`orders`) so both ways of running write to the same folder.
 
 ## Quick start
 
@@ -35,15 +57,18 @@ pip install -e ".[dev,mcp]"
 python -I -m o2j doctor
 ```
 
+Copy a sample spec into `openapi/` and convert everything in the folder up to the plan:
+
 ```bash
-python -I -m o2j run tests/corpus/02-petstore-3.1/spec.yaml --to plan
+cp tests/corpus/02-petstore-3.1/spec.yaml openapi/petstore.yaml
+python -I -m o2j run --to plan
 ```
 
 ## Step by step: OpenAPI YAML → Spring Boot REST endpoints
 
-This walkthrough turns your own spec into a running Spring Boot service. Each stage writes its
-artifacts under `work/` (override with `--work-dir` or `O2J_WORK_DIR`). The service is written
-next to the `o2j.yaml` it was built from. On a failed gate, every command stops with the
+This walkthrough takes one spec, `openapi/orders.yaml`, through each stage by hand and ends
+with a running service in `generated_Code/orders/`. To convert every spec in `openapi/` in one
+command, skip to [All at once](#all-at-once). On a failed gate, every command stops with the
 exit code listed under [Pipeline](#pipeline).
 
 ### 1. Install the prerequisites
@@ -60,23 +85,26 @@ exit code listed under [Pipeline](#pipeline).
 pip install -e ".[dev,mcp]"
 ```
 
-### 2. Create a service directory and its config
-
-Keep the service out of the o2j repository: generated sources, scaffolds and `work/` all land
-next to `o2j.yaml`.
+### 2. Put the spec in `openapi/` and configure the service
 
 ```bash
-mkdir order-service && cd order-service
-o2j init --service order-service --base-package com.acme.commerce.order --java 21
+cp /path/to/orders.yaml openapi/orders.yaml
 ```
 
 Then edit `o2j.yaml`:
 
+- `service.name`, `service.artifact_id`: the service name, which is also its folder under
+  `generated_Code/`. Use the spec's file name (`orders`).
 - `service.group_id`, `service.base_package`: Maven coordinates and Java package.
 - `target.java_version` and `target.spring_profile` (`spring-boot-3` or `spring-boot-4`).
-- `openapi.input`: path to your spec (default `openapi/spec.raw.yaml`).
+- `openapi.input`: leave it as `openapi` to read the folder, or name a single file.
+- `generation.service_root`: where services are written (default `generated_Code`).
 - `quality.mutation.target_packages`: set this to your `<base_package>.service.*`.
 - `ems`: only if you are replacing TIBCO EMS queues (see [below](#replacing-tibco-ems-queues)).
+
+To keep specs and services in another directory, run `o2j init --service orders
+--base-package com.acme.orders --java 21` there. It writes a fresh `o2j.yaml`, and `openapi/`,
+`generated_Code/` and `work/` are then resolved from that directory.
 
 ### 3. Check the toolchain
 
@@ -90,27 +118,29 @@ whether the pinned versions in `o2j.yaml` are behind Maven Central.
 ### 4. Ingest the spec (S0)
 
 ```bash
-python -I -m o2j ingest openapi/spec.raw.yaml
+python -I -m o2j ingest openapi/orders.yaml
 ```
 
 Copies the spec into quarantine (`work/00-ingest/`), checks its size and extension, records
-its hash and detects the version (Swagger 2.0, OpenAPI 3.0, 3.1 or 3.2).
+its hash and detects the version (Swagger 2.0, OpenAPI 3.0, 3.1 or 3.2). With exactly one spec
+in `openapi/`, the path can be left out. With several, the stage commands need it, because they
+never guess which one you meant.
 
 ### 5. Validate it (S1)
 
 ```bash
-python -I -m o2j validate openapi/spec.raw.yaml
+python -I -m o2j validate openapi/orders.yaml
 ```
 
 Checks syntax, semantics and the house rules: security on every operation, pagination on
 collections, Problem Details error responses, naming. Each finding prints a `fix:` hint, and a
-SARIF report is written to `work/01-validate/` for code-scanning UIs. **Fix the spec, not the
-generated code.** Exit `3` means at least one error remains.
+SARIF report is written to `work/01-validate/` for code-scanning UIs. **Fix the spec in
+`openapi/`, not the generated code.** Exit `3` means at least one error remains.
 
 ### 6. Normalize to the canonical version (S2)
 
 ```bash
-python -I -m o2j normalize openapi/spec.raw.yaml
+python -I -m o2j normalize openapi/orders.yaml
 ```
 
 Converts the spec to OpenAPI 3.1.2, the version the Java toolchain accepts. Swagger 2.0 and 3.0
@@ -135,22 +165,25 @@ markers the tests must carry. Review a `high` risk band before building logic on
 python -I -m o2j generate
 ```
 
-Runs `openapi-generator` through Maven and scaffolds the rest. Layout, under
-`src/main/java/<base_package>/`:
+Runs `openapi-generator` through Maven and scaffolds the rest, all into `generated_Code/orders/`
+(`--output <dir>` writes somewhere else). Layout:
 
-| Package | Contents | Who owns it |
+| Path under `generated_Code/orders/` | Contents | Who owns it |
 |---|---|---|
+| `pom.xml` | build, with every version from `o2j.yaml` | o2j |
+| `openapi/spec.canonical.yaml` | the spec this code was built from | o2j: never edit |
 | `target/generated-sources/openapi` | DTOs, `*Api` interfaces, `*ApiController` | generator: never edit |
-| `api/` | `*ApiDelegateImpl`: one method per endpoint | you |
-| `service/` | business services the delegates call | you |
-| `mapper/` | MapStruct mappers between DTOs and domain types | you |
-| `config/` | `SecurityConfig`, `OpenApiSecurityRules`, correlation-id filter | o2j |
-| `error/` | `GlobalExceptionHandler` (RFC 9457 Problem Details), domain exceptions | o2j |
+| `src/main/java/<base_package>/api/` | `*ApiDelegateImpl`: one method per endpoint | you |
+| `src/main/java/<base_package>/service/` | business services the delegates call | you |
+| `src/main/java/<base_package>/mapper/` | MapStruct mappers between DTOs and domain types | you |
+| `src/main/java/<base_package>/config/` | `SecurityConfig`, `OpenApiSecurityRules`, correlation-id filter | o2j |
+| `src/main/java/<base_package>/error/` | `GlobalExceptionHandler` (RFC 9457 Problem Details), domain exceptions | o2j |
+| `src/test/java/<base_package>/` | contract tests (regenerated) and business-test skeletons (yours) | both |
 
-Contract tests in `src/test/java` are regenerated on every run, and `@Disabled` skeletons are
-created for the business cases. If a scaffolded file you changed would be overwritten,
-o2j writes `<file>.o2j-new` and reports a `CONFLICT` for you to merge by hand. Use
-`--no-run-generator` to scaffold without Maven.
+Contract tests are regenerated on every run, and `@Disabled` skeletons are created for the
+business cases. If a scaffolded file you changed would be overwritten, o2j writes
+`<file>.o2j-new` and reports a `CONFLICT` for you to merge by hand. Use `--no-run-generator`
+to scaffold without Maven.
 
 Confirm that regenerating gives byte-identical output:
 
@@ -161,7 +194,7 @@ python -I -m o2j verify --mode determinism
 ### 9. Implement the endpoints
 
 The generated controller handles routing, binding and validation, then calls your delegate. For
-each operation:
+each operation, in `generated_Code/orders/src/main/java/<base_package>/`:
 
 1. Implement the method in `api/<Resource>ApiDelegateImpl`: map the request DTO with the
    mapper, call the service, map the result back and return a `ResponseEntity` with the status
@@ -177,8 +210,8 @@ In VS Code with Copilot, the `service-implementer` agent does this step. The
 ### 10. Write the business tests
 
 Fill in the `@Disabled` methods in `<Service>Test` (Mockito) and `<Api>BehaviourTest` (web
-slice), then remove `@Disabled`. Keep each method's `// o2j:` marker. The `test-author` agent
-can do this.
+slice) under `generated_Code/orders/src/test/java`, then remove `@Disabled`. Keep each method's
+`// o2j:` marker. The `test-author` agent can do this.
 
 ```bash
 python -I -m o2j verify --mode contract --static   # markers are on test methods
@@ -187,60 +220,71 @@ python -I -m o2j verify --mode contract --static   # markers are on test methods
 ### 11. Build and run the gates (S7)
 
 ```bash
-mvn verify
+mvn -f generated_Code/orders/pom.xml verify
 python -I -m o2j quality                        # Spotless, Checkstyle, PMD, SpotBugs, ArchUnit, OWASP, gitleaks
 python -I -m o2j coverage --no-run-build        # line, branch, service-layer and mutation thresholds
 python -I -m o2j verify --mode contract         # every required case claimed by a passing test
 python -I -m o2j verify --mode conformance      # every recorded response matches the spec
 ```
 
-The default thresholds are 85% line, 80% branch, 90% service-layer line and 70% mutation score,
-all set in `o2j.yaml`. Exit `6` means a gate failed.
+The o2j commands run against `generated_Code/<service.artifact_id>/`. The default thresholds
+are 85% line, 80% branch, 90% service-layer line and 70% mutation score, all set in `o2j.yaml`.
+Exit `6` means a gate failed.
 
 ### 12. Report and run the service (S8)
 
 ```bash
 python -I -m o2j report
+cd generated_Code/orders
 JWT_ISSUER_URI=https://your-idp/realms/main mvn spring-boot:run
 ```
 
 `report` writes the manifest, the traceability matrix (operation → code → tests) and a PR body
-to `work/08-report/`. The service starts on port 8080. springdoc serves the live contract at
-`/v3/api-docs` and Swagger UI at `/swagger-ui.html`. Secured endpoints need a JWT from the
-issuer in `JWT_ISSUER_URI`. Without that variable the service rejects every token, so it fails
-closed.
+to `work/08-report/`, and `o2j.lock.json` into the service folder. The service starts on port
+8080. springdoc serves the live contract at `/v3/api-docs` and Swagger UI at
+`/swagger-ui.html`. Secured endpoints need a JWT from the issuer in `JWT_ISSUER_URI`. Without
+that variable the service rejects every token, so it fails closed.
 
 ### All at once
 
-Once the steps are familiar, one command runs any range of stages and stops at the first
-failed gate:
+`o2j run` runs any range of stages and stops at the first failed gate. With no argument it
+reads `openapi.input`, which is the `openapi/` folder, and converts **every** `*.yaml` /
+`*.yml` in it:
 
 ```bash
-python -I -m o2j run openapi/spec.raw.yaml                      # ingest -> report
-python -I -m o2j run openapi/spec.raw.yaml --to generate        # stop after codegen
-python -I -m o2j run --from gate --to report                    # re-gate after implementing
-python -I -m o2j run openapi/spec.raw.yaml --java 17            # override the Java target
+python -I -m o2j run                                    # every spec in openapi/, ingest -> report
+python -I -m o2j run --to generate                      # stop after codegen
+python -I -m o2j run --only orders --from gate          # re-gate one service after implementing it
+python -I -m o2j run --java 17                          # override the Java target
+python -I -m o2j run openapi/orders.yaml                # one file: service name from o2j.yaml
 ```
+
+A folder run writes each service to `generated_Code/<spec-name>/` and its stage artifacts to
+`work/<spec-name>/`. A spec that fails a gate does not stop the others. The run ends with a
+per-service summary and exits with the highest exit code. `--only` takes a file name
+(`orders.yaml`), a file stem or a service name, and can be repeated. EMS routes name the
+operations of one spec, so they are skipped when a folder run converts more than one.
 
 Stages: `ingest`, `validate`, `normalize`, `plan`, `generate`, `gate`, `report`.
 
 ### When the spec changes
 
-Edit the spec and re-run from `ingest`. Generated code and contract tests are rebuilt.
-Scaffolds you already edited are kept, and any that conflict show up as `.o2j-new`. Use
-`python -I -m o2j verify --mode drift` to check whether the code still matches the spec, and
-set `validation.breaking_change_baseline` to the previous spec so breaking changes are flagged
-during validation.
+Edit the spec in `openapi/` and re-run from `ingest`. Generated code and contract tests in
+`generated_Code/<service>/` are rebuilt. Scaffolds you already edited are kept, and any that
+conflict show up as `.o2j-new`. Use `python -I -m o2j verify --mode drift` to check whether the
+code still matches the spec, and set `validation.breaking_change_baseline` to the previous spec
+so breaking changes are flagged during validation. Renaming a spec file renames its service
+folder in folder runs, so move `generated_Code/<old-name>/` along with it.
 
 ## Pipeline
 
 | Stage | Command | Gate |
 |---|---|---|
-| S0 Ingest | `o2j ingest <spec>` | size, extension, parses |
+| S0 Ingest | `o2j ingest openapi/<spec>.yaml` | size, extension, parses |
 | S1 Validate | `o2j validate` | zero errors (exit 3) |
 | S2 Normalize | `o2j normalize` | no load-bearing loss (exit 4) |
 | S3 Plan | `o2j plan` | at least one operation |
-| S4 Generate | `o2j generate` | generator exit 0, determinism holds |
+| S4 Generate | `o2j generate` → `generated_Code/<service>/` | generator exit 0, determinism holds |
 | S6 Test | `o2j testplan` | every required case implemented |
 | S7 Gate | `o2j quality`, `o2j coverage`, `o2j verify` | thresholds met (exit 6/7) |
 | S8 Report | `o2j report` | manifest + traceability written |

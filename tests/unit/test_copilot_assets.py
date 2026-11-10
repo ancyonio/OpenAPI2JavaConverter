@@ -131,7 +131,7 @@ class TestLeastPrivilege:
     def test_validator_cannot_edit_source(self) -> None:
         data, body = split_frontmatter(AGENTS_DIR / "yaml-validator.agent.md")
         assert "edit" in data["tools"]
-        assert "must not edit anything under `src/`" in body
+        assert "must not edit anything under `generated_Code/`" in body
 
     def test_normalizer_has_no_edit_tool(self) -> None:
         """Normalization is deterministic; the agent reviews it rather than performing it."""

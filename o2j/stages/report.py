@@ -33,7 +33,7 @@ def report(
 ) -> Manifest:
     """Assemble the manifest and the human-readable reports."""
     work = work or WorkDir()
-    project = Path(root) if root else cfg.project_root
+    project = Path(root) if root else cfg.service_dir
 
     plan = _try_read(work, "plan", "generation-plan.json", GenerationPlan)
     quality = _try_read(work, "gate", "quality-report.json", QualityReport)

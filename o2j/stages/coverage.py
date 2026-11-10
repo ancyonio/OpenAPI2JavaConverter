@@ -23,7 +23,7 @@ def coverage(
     run_build: bool = True,
 ) -> CoverageReport:
     """Run the test build if asked, then read and evaluate the reports."""
-    project = Path(root) if root else cfg.project_root
+    project = Path(root) if root else cfg.service_dir
     thresholds = {
         "line_min": cfg.quality.coverage.line_min,
         "branch_min": cfg.quality.coverage.branch_min,

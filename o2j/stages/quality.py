@@ -33,7 +33,7 @@ def quality(
     root: str | Path | None = None,
 ) -> QualityReport:
     """Run the configured static-analysis gates."""
-    project = Path(root) if root else cfg.project_root
+    project = Path(root) if root else cfg.service_dir
     settings = cfg.quality.static_analysis
     requested = tools or [name for name in GOALS if getattr(settings, name, False)]
     results: list[ToolResult] = []

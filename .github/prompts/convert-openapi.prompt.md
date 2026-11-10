@@ -4,7 +4,10 @@ agent: openapi-to-spring
 description: Convert an OpenAPI YAML specification into a Spring Boot service end to end.
 ---
 
-Convert the OpenAPI specification at `${input:specPath}` into a Spring Boot service.
+Convert the OpenAPI specification at `${input:specPath}` (a spec under `openapi/`) into a
+Spring Boot service. Write the service to `generated_Code/<service>/`, where `<service>` is
+`service.artifact_id` from `o2j.yaml`. To convert every spec in `openapi/` at once, use
+`python -I -m o2j run openapi` instead: it writes one service per spec, named after the file.
 
 Target: Java `${input:javaVersion:21}`, Spring Boot 3.x, Maven, Spring Web MVC.
 Base package: `${input:basePackage}`.

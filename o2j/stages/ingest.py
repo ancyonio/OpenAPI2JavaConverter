@@ -35,20 +35,24 @@ def ingest(
 ) -> IngestResult:
     """Copy the spec into quarantine and record its identity."""
     work = work or WorkDir()
-    origin = Path(source) if source is not None else cfg.project_root / cfg.openapi.input
+    origin = Path(source) if source is not None else cfg.default_spec()
 
     if str(origin).startswith(("http://", "https://")):
         # Deliberately not implemented: a remote fetch would make the build depend on the
         # network and on whatever the far end serves today. Specs are vendored instead.
         raise IngestError(
             f"remote spec URIs are not supported: {origin}",
-            hint="download the spec, commit it under openapi/, and point o2j.yaml at it",
+            hint="download the spec and commit it under openapi/ (or wherever `openapi.input` "
+            "points)",
         )
 
     if not origin.is_file():
         raise IngestError(
             f"spec not found: {origin}",
-            hint=f"set `openapi.input` in {cfg.source_path or 'o2j.yaml'}",
+            hint=(
+                "put the spec under openapi/, or set `openapi.input` in "
+                f"{cfg.source_path or 'o2j.yaml'}"
+            ),
         )
 
     size = origin.stat().st_size

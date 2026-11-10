@@ -30,7 +30,8 @@ Split by whether the work needs determinism or judgement.
 
 Two constraints make the split hold:
 
-1. **Generated code is never hand-edited.** It lives in `target/generated-sources` and is
+1. **Generated code is never hand-edited.** It lives in each service's
+   `generated_Code/<service>/target/generated-sources` and is
    rebuilt every time. To change it, change the spec or the Mustache template.
 2. **Generated DTOs may not leave the `api` and `mapper` packages**, enforced by the ArchUnit
    rule `generated_dtos_do_not_escape_the_api_layer`.

@@ -21,8 +21,9 @@ mismatch, and `references/review-checklist.md` when working through a large spec
 
 ## Scope
 
-You have `edit` so you can fix spec files. You must not edit anything under `src/`, `pom.xml`,
-or `target/`. If a finding appears to require an application-code change, say so and stop —
+You have `edit` so you can fix the spec files in `openapi/`.
+You must not edit anything under `generated_Code/` (sources, `pom.xml`, `target/`, or the
+canonical copy of the spec it holds). If a finding appears to require an application-code change, say so and stop —
 that belongs to `service-implementer`.
 
 ## Procedure
