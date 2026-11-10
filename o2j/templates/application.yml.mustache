@@ -14,6 +14,16 @@ spring:
   mvc:
     problemdetails:
       enabled: true          # RFC 9457 for framework-raised errors too
+{{#uses_jwt}}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Set JWT_ISSUER_URI per environment. The default cannot resolve, so an unconfigured
+          # service rejects every token (fails closed) rather than trusting one. Spring Boot
+          # resolves the issuer lazily, so startup and tests do not need it to be reachable.
+          issuer-uri: ${JWT_ISSUER_URI:https://issuer.invalid}
+{{/uses_jwt}}
   jpa:
     hibernate:
       ddl-auto: validate     # schema changes go through Flyway, never through Hibernate

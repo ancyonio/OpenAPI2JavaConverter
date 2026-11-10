@@ -30,14 +30,19 @@ accommodating it hides the defect and keeps it.
 
 1. Call `o2j_test_plan` first. Each operation carries a `requiredTests` list derived from its
    shape. **That list is your specification** — implement every entry.
-2. Mark each test with the case it covers: `// o2j:<case>`, on the method. `o2j_verify` with
-   `mode: contract` checks that every required case has a marker, so an unmarked test does not
-   count even if it is correct.
-3. Write bottom-up: mapper, service, slice, integration, contract.
-4. `o2j_run_tests` after each class.
-5. `o2j_coverage_report` — add cases for behaviour that is not asserted, not for lines that are
+2. Mark each test with the operation and case it covers: `// o2j:<operationId>:<case>`,
+   directly above the test method (`o2j_test_plan` lists the exact markers). `o2j_verify` with
+   `mode: contract` checks every required case is claimed by a test method that passed, so an
+   unmarked test does not count even if it is correct, and a marker off a test method does not
+   count at all. Use `static: true` while writing; the gate runs without it.
+3. Security cases (`slice:unauthenticated-401`, `slice:wrong-scope-403`) are already covered
+   by the managed `OpenApiSecurityContractTest`. Do not duplicate them, and never edit that
+   file or `OpenApiSecurityRules` - o2j regenerates both from the spec.
+4. Write bottom-up: mapper, service, slice, integration, contract.
+5. `o2j_run_tests` after each class.
+6. `o2j_coverage_report` — add cases for behaviour that is not asserted, not for lines that are
    not executed. Those are different problems and only the first is worth solving.
-6. Re-run until line, branch and mutation thresholds all pass.
+7. Re-run until line, branch and mutation thresholds all pass.
 
 ## The gate you should expect to fail
 

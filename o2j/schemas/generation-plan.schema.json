@@ -100,6 +100,19 @@
           "title": "Security",
           "type": "array"
         },
+        "securityRequirements": {
+          "items": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object"
+          },
+          "title": "Securityrequirements",
+          "type": "array"
+        },
         "idempotent": {
           "default": false,
           "title": "Idempotent",
@@ -235,6 +248,18 @@
     "basePackage": {
       "title": "Basepackage",
       "type": "string"
+    },
+    "basePath": {
+      "default": "",
+      "title": "Basepath",
+      "type": "string"
+    },
+    "securitySchemes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Securityschemes",
+      "type": "object"
     },
     "resources": {
       "items": {

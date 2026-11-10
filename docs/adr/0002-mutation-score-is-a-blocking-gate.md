@@ -31,8 +31,9 @@ Three measures, all blocking:
 1. **Derived required tests.** `o2j plan` computes a `requiredTests` list per operation from
    its shape — a `POST` returning 201 with an `Idempotency-Key` header gets
    `slice:201-location-header` and `unit:idempotent-replay-single-side-effect`; a paginated
-   `GET` gets five boundary cases. Each test claims a case with a `// o2j:<case>` marker, and
-   `o2j verify --mode contract` fails if any case has no test.
+   `GET` gets five boundary cases. Each test method claims a case for its operation with a
+   `// o2j:<operationId>:<case>` marker, and `o2j verify --mode contract` fails if any case is
+   not claimed by a test that ran and passed.
 2. **Coverage thresholds**: 85% line, 80% branch, 90% line on the service layer. Generated
    code, configuration and `Application` are excluded — coverage of a generated getter
    measures the generator.

@@ -30,12 +30,14 @@ public class {{delegate}} implements {{api_interface}}Delegate {
   }
 {{#operations}}
 
-  /**
+  /*
    * {{method}} {{path}}
    *
    * <p>Returns {{success_status}} on success. Required test cases: {{required_test_count}}
    * (run: o2j testplan; claim each with a
-   * {@code // o2j:{{operation_id}}:<case>} marker on the test method).
+   * "// o2j:{{operation_id}}:<case>" marker on the test method). A plain comment, not
+   * Javadoc: once a method is implemented below it, a dangling doc comment fails the build
+   * on JDK 23+ under -Werror.
    */
   // TODO(O2J): implement {{operation_id}}.
   //   1. map the request DTO to a domain object with the MapStruct mapper

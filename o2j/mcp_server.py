@@ -159,8 +159,9 @@ def o2j_generate_code(
 def o2j_test_plan() -> dict[str, Any]:
     """The mandatory test cases per operation, derived from each operation's shape.
 
-    Read-only. Each case is `<layer>:<case>`; a test claims one with a `// o2j:<case>`
-    marker comment, which `o2j_verify(mode="contract")` then checks.
+    Read-only. Each case is `<layer>:<case>`; a test method claims one for its operation with
+    a `// o2j:<operationId>:<case>` marker comment, which `o2j_verify(mode="contract")` then
+    checks against the test results.
     """
     try:
         plan = WorkDir().read_json("plan", "generation-plan.json", GenerationPlan)
@@ -169,7 +170,7 @@ def o2j_test_plan() -> dict[str, Any]:
 
     return {
         "ok": True,
-        "markerFormat": "// o2j:<case>",
+        "markerFormat": "// o2j:<operationId>:<case>",
         "totalRequiredCases": sum(len(o.required_tests) for o in plan.operations),
         "operations": [
             {
@@ -179,6 +180,7 @@ def o2j_test_plan() -> dict[str, Any]:
                 "requestType": op.request_type,
                 "responseType": op.response_type,
                 "requiredTests": op.required_tests,
+                "markers": [f"// {op.marker(case)}" for case in op.required_tests],
                 "riskFactors": op.risk_factors,
             }
             for op in plan.operations
@@ -256,14 +258,16 @@ def o2j_quality_report(tools: list[str] | None = None) -> dict[str, Any]:
 
 
 @mcp.tool()
-def o2j_verify(mode: str = "determinism") -> dict[str, Any]:
+def o2j_verify(mode: str = "determinism", static: bool = False) -> dict[str, Any]:
     """Check determinism, spec drift, or contract conformance.
 
     Read-only. `determinism` normalizes twice and diffs; `drift` compares the recorded spec
-    hash with the current one; `contract` checks every required test case has a test.
+    hash with the current one; `contract` checks every required case is claimed, for its
+    operation, by a test method that passed in the last `mvn verify`. `static=True` checks
+    only that the markers sit on test methods - useful while writing tests, not as a gate.
     """
     try:
-        result = verify_stage.verify(_cfg(), mode, WorkDir())
+        result = verify_stage.verify(_cfg(), mode, WorkDir(), require_results=not static)
         return {"ok": result.passed, **result.model_dump(by_alias=True)}
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}

@@ -146,7 +146,9 @@
               <generateModelDocumentation>false</generateModelDocumentation>
               <!-- Only the supporting files the contract layer needs. The default set adds a
                    second @SpringBootApplication (org.openapitools.OpenApiGeneratorApplication),
-                   which breaks repackaging, plus config in a package nothing scans. -->
+                   which breaks repackaging, plus config in a package nothing scans. The enum
+                   converter goes under api.config: it reads generated DTO enums, so it belongs
+                   inside the contract boundary ArchUnit draws around ..api.. -->
               <supportingFilesToGenerate>ApiUtil.java,EnumConverterConfiguration.java</supportingFilesToGenerate>
               <configOptions>
 {{#use_spring_boot_4}}                <useSpringBoot4>true</useSpringBoot4>
@@ -165,7 +167,7 @@
                 <serializableModel>{{generation.serializable_model}}</serializableModel>
                 <unhandledException>{{generation.unhandled_exception}}</unhandledException>
                 <sourceFolder>src/main/java</sourceFolder>
-                <configPackage>{{base_package}}.config.openapi</configPackage>
+                <configPackage>{{base_package}}.api.config</configPackage>
               </configOptions>
             </configuration>
           </execution>
@@ -183,9 +185,13 @@
               <version>${mapstruct.version}</version>
             </path>
           </annotationProcessorPaths>
+          <!-- -Werror over every lint category except `serial`: openapi-generator's
+               serializable models hold List/Map fields, which JDK 18+ reports as
+               "non-transient field of non-serializable type". That is generated code nobody
+               may edit, and javac cannot scope lint flags to one source root. -->
           <compilerArgs>
             <arg>-Werror</arg>
-            <arg>-Xlint:all,-processing</arg>
+            <arg>-Xlint:all,-processing,-serial</arg>
           </compilerArgs>
         </configuration>
       </plugin>

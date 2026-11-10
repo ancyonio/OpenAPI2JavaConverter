@@ -274,7 +274,7 @@ def testplan(
     for operation in generation_plan.operations:
         _err(f"{operation.operation_id} ({operation.method} {operation.path})")
         for case in operation.required_tests:
-            _err(f"  o2j:{case}")
+            _err(f"  // {operation.marker(case)}")
     _emit(generation_plan, as_json)
 
 
@@ -304,6 +304,8 @@ def generate(
 
     work.write_json("generate", "generation-result.json", result)
     _err(f"generated {len(result.files)} contract file(s)")
+    for path in result.managed:
+        _err(f"  managed    {path}")
     for path in result.scaffolded:
         _err(f"  scaffolded {path}")
     for path in result.conflicts:
@@ -377,12 +379,21 @@ def verify(
     mode: Annotated[str, typer.Option(help="determinism | drift | contract")] = "determinism",
     config: ConfigOpt = None,
     work_dir: WorkOpt = None,
+    static: Annotated[
+        bool,
+        typer.Option(
+            "--static",
+            help="contract: check markers sit on test methods, without requiring test results.",
+        ),
+    ] = False,
     as_json: JsonOpt = False,
 ) -> None:
     """S7 - determinism, spec drift, or contract conformance."""
     cfg = _load(config)
     try:
-        result = verify_stage.verify(cfg, mode, WorkDir(work_dir))
+        result = verify_stage.verify(
+            cfg, mode, WorkDir(work_dir), require_results=not static
+        )
     except ValueError as exc:
         _err(f"error: {exc}")
         raise typer.Exit(int(ExitCode.USAGE)) from exc

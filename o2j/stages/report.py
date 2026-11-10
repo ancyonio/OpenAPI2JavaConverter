@@ -144,7 +144,7 @@ def _traceability(cfg: O2JConfig, plan: GenerationPlan) -> str:
             lines.append(f"### `{op.operation_id}`")
             lines.append("")
             for case in op.required_tests:
-                lines.append(f"- `o2j:{case}`")
+                lines.append(f"- `{op.marker(case)}`")
             lines.append("")
 
     return "\n".join(lines)

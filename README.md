@@ -58,8 +58,15 @@ Exit codes: `0` ok · `2` config · `3` validation · `4` load-bearing loss · `
 `o2j plan` derives a `requiredTests` list per operation from its shape — a `POST` returning
 201 with an `Idempotency-Key` header gets `slice:201-location-header` and
 `unit:idempotent-replay-single-side-effect`; a paginated `GET` gets five boundary cases. The
-`test-author` agent is told which cases must exist, each test claims one with a
-`// o2j:<case>` marker, and `o2j verify --mode contract` checks none is missing.
+`test-author` agent is told which cases must exist, each test method claims one for its
+operation with a `// o2j:<operationId>:<case>` marker, and `o2j verify --mode contract` checks
+that every case is claimed by a test that ran and passed in the Surefire/Failsafe reports - a
+marker in a comment that is not on a test, or on a failing test, does not count.
+
+The security cases are not left to an agent. o2j regenerates `OpenApiSecurityRules` (one
+Spring Security rule per operation, from the spec's `security` requirements) and
+`OpenApiSecurityContractTest` (401 and 403 checks for every secured operation, and a
+not-refused check for every public one) on each run, so they cannot drift from the spec.
 
 On top of that, **mutation score is a blocking gate at 70%**. An AI-authored suite reaches 85%
 line coverage easily, because exercising a line is easy and asserting the right outcome is

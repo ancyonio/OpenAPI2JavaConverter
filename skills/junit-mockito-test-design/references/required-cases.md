@@ -64,15 +64,25 @@ asserting only the response passes against a broken implementation that charges 
 ## Making it verifiable
 
 A derived list is only useful if you can tell whether it has been implemented. Inferring that
-from test method names is guesswork. A marker comment is explicit and greppable:
+from test method names is guesswork. A marker comment is explicit and greppable, and names
+the operation as well as the case - `o2j:<operationId>:<layer>:<case>`:
 
 ```java
-// o2j:slice:201-location-header
+// o2j:createOrder:slice:201-location-header
 @Test
 void createOrder_whenValid_returns201WithLocationHeader() throws Exception {
   ...
 }
 ```
+
+A marker counts only when all three hold, and `o2j verify --mode contract` checks each:
+
+- it names the operation. Without that, one `unit:happy-path` comment satisfied the case for
+  every operation in the spec;
+- it sits on a JUnit test method - in its body, or directly above it with only annotations
+  and comments in between. A marker in a helper method or a stray comment counts for nothing;
+- that test ran and passed in the last `mvn verify`, according to the Surefire/Failsafe XML
+  reports. `--static` skips this while tests are still being written; the gate never does.
 
 Then a check can scan the test sources for markers and compare against the derived list:
 

@@ -5,6 +5,9 @@ Two different guarantees live here, and keeping them apart is the point of the w
 * The contract layer (DTOs, API interfaces, controllers) is produced by openapi-generator into
   ``target/generated-sources``. It is reproducible, never hand-edited, and regenerated on every
   build.
+* A few files are *managed*: derived from the spec but outside openapi-generator's reach, like
+  the security rules. o2j rewrites them on every run, exactly like generated sources, so a spec
+  change cannot leave them stale. They say so in their header and are never hand-edited.
 * The hand-written layers are *scaffolded once*. If a file already exists, this stage writes
   ``<name>.o2j-new`` beside it and reports a conflict. It never overwrites human or agent code,
   because that is what makes regenerating over an evolving spec safe.
@@ -17,6 +20,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from o2j import security
 from o2j.config import O2JConfig
 from o2j.errors import GenerationFailed
 from o2j.models import GenerationPlan, GenerationResult
@@ -42,10 +46,28 @@ SCAFFOLD: tuple[tuple[str, str], ...] = (
         "CorrelationIdFilter.java.mustache",
         "src/main/java/{pkg_path}/config/CorrelationIdFilter.java",
     ),
+    ("SecurityConfig.java.mustache", "src/main/java/{pkg_path}/config/SecurityConfig.java"),
+    (
+        "ProblemDetailsSecurityHandler.java.mustache",
+        "src/main/java/{pkg_path}/config/ProblemDetailsSecurityHandler.java",
+    ),
+    ("MapStructConfig.java.mustache", "src/main/java/{pkg_path}/mapper/MapStructConfig.java"),
     ("application.yml.mustache", "src/main/resources/application.yml"),
     (
         "ArchitectureTest.java.mustache",
         "src/test/java/{pkg_path}/architecture/ArchitectureTest.java",
+    ),
+)
+
+# Spec-derived files o2j owns and rewrites on every run.
+MANAGED: tuple[tuple[str, str], ...] = (
+    (
+        "OpenApiSecurityRules.java.mustache",
+        "src/main/java/{pkg_path}/config/OpenApiSecurityRules.java",
+    ),
+    (
+        "OpenApiSecurityContractTest.java.mustache",
+        "src/test/java/{pkg_path}/security/OpenApiSecurityContractTest.java",
     ),
 )
 
@@ -76,7 +98,12 @@ def generate(
 
     context = _build_context(cfg, plan)
     scaffolded: list[str] = []
+    managed: list[str] = []
     conflicts: list[str] = []
+
+    for template_name, destination in MANAGED:
+        target = root / destination.format(pkg_path=context["pkg_path"])
+        _write_managed(template_name, target, context, managed, root)
 
     for template_name, destination in SCAFFOLD:
         target = root / destination.format(pkg_path=context["pkg_path"])
@@ -87,6 +114,14 @@ def generate(
         _write_once(
             "DelegateImpl.java.mustache",
             root / f"src/main/java/{context['pkg_path']}/api/{resource.delegate}.java",
+            res_ctx,
+            scaffolded,
+            conflicts,
+            root,
+        )
+        _write_once(
+            "Mapper.java.mustache",
+            root / f"src/main/java/{context['pkg_path']}/mapper/{res_ctx['mapper']}.java",
             res_ctx,
             scaffolded,
             conflicts,
@@ -112,6 +147,7 @@ def generate(
         output_dir=cfg.generation.output_dir,
         files=files,
         scaffolded=scaffolded,
+        managed=managed,
         conflicts=conflicts,
         command=command,
     )
@@ -152,6 +188,63 @@ def _write_once(
     scaffolded.append(relative)
 
 
+def _write_managed(
+    template_name: str,
+    target: Path,
+    context: dict[str, Any],
+    managed: list[str],
+    root: Path,
+) -> None:
+    """Render a spec-derived file and always overwrite it.
+
+    Unlike scaffolds, these must follow the spec: a security rule left over from the previous
+    spec version is a vulnerability, not a merge conflict.
+    """
+    template_path = TEMPLATE_DIR / template_name
+    if not template_path.is_file():
+        raise GenerationFailed(f"missing managed template: {template_path}")
+    body = render(template_path.read_text(encoding="utf-8"), context)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(body, encoding="utf-8", newline="\n")
+    managed.append(str(target.relative_to(root)).replace("\\", "/"))
+
+
+def _security_context(plan: GenerationPlan) -> dict[str, Any]:
+    rules = security.rules(plan)
+    by_id = {op.operation_id: op for op in plan.operations}
+
+    def case(rule: security.SecurityRule) -> dict[str, str]:
+        return {
+            "operation_id": rule.operation_id,
+            "method": rule.method,
+            "method_name": security.java_identifier(rule.operation_id),
+            "sample_path": security.sample_path(rule.pattern),
+        }
+
+    ordered = sorted(rules, key=lambda r: r.operation_id)
+    return {
+        "uses_jwt": security.uses_jwt(plan),
+        "always_public": ", ".join(f'"{p}"' for p in security.ALWAYS_PUBLIC),
+        "security_rules": [
+            {
+                "operation_id": r.operation_id,
+                "method": r.method,
+                "pattern": r.pattern,
+                "expression": r.expression,
+                "comment": r.comment,
+            }
+            for r in rules
+        ],
+        "unauthenticated_cases": [
+            case(r) for r in ordered if by_id[r.operation_id].requires_authentication
+        ],
+        "wrong_scope_cases": [
+            case(r) for r in ordered if by_id[r.operation_id].requires_scopes
+        ],
+        "public_cases": [case(r) for r in ordered if r.expression == "permitAll()"],
+    }
+
+
 def _build_context(cfg: O2JConfig, plan: GenerationPlan) -> dict[str, Any]:
     boot4 = cfg.target.spring_profile == "spring-boot-4"
     return {
@@ -174,6 +267,7 @@ def _build_context(cfg: O2JConfig, plan: GenerationPlan) -> dict[str, Any]:
         "mutation_target": ",".join(cfg.quality.mutation.target_packages)
         or f"{cfg.service.base_package}.service.*",
         "coverage_excludes": [{"pattern": p} for p in cfg.quality.coverage.exclude],
+        **_security_context(plan),
     }
 
 
@@ -183,6 +277,7 @@ def _resource_context(resource: Any, base: dict[str, Any]) -> dict[str, Any]:
         "api_interface": resource.api_interface,
         "delegate": resource.delegate,
         "service": resource.service,
+        "mapper": resource.api_interface.removesuffix("Api") + "Mapper",
         "operations": [
             {
                 "operation_id": op.operation_id,

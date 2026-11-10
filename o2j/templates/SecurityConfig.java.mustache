@@ -1,0 +1,60 @@
+package {{base_package}}.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+
+/**
+ * HTTP security for the service. Scaffolded once by o2j; yours to edit and never overwritten.
+ *
+ * <p>The per-operation rules come from {@link OpenApiSecurityRules}, which o2j regenerates from
+ * the spec. This class owns everything else: the token format, CORS, and rules for endpoints
+ * the spec does not describe (add those before {@code OpenApiSecurityRules.apply} - the first
+ * matching rule wins).
+ *
+ * <p>Stateless bearer-token API: no session, no form login, and therefore no CSRF protection
+ * to enable. With Spring Boot's default chain instead, a public endpoint answered 401 and an
+ * unauthenticated POST answered 403 from the CSRF filter rather than 401.
+ */
+@Configuration
+@EnableMethodSecurity
+public class SecurityConfig {
+
+  @Bean
+  SecurityFilterChain apiSecurity(HttpSecurity http, ProblemDetailsSecurityHandler problems)
+      throws Exception {
+    http.csrf(AbstractHttpConfigurer::disable)
+        .httpBasic(AbstractHttpConfigurer::disable)
+        .formLogin(AbstractHttpConfigurer::disable)
+        .logout(AbstractHttpConfigurer::disable)
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .exceptionHandling(
+            errors -> errors.authenticationEntryPoint(problems).accessDeniedHandler(problems))
+        .authorizeHttpRequests(
+            authorize -> {
+              // Rules for endpoints outside the spec go here, before the spec's rules.
+              OpenApiSecurityRules.apply(authorize);
+            });
+{{#uses_jwt}}
+    // Validates bearer JWTs against spring.security.oauth2.resourceserver.jwt.* (see
+    // application.yml). Failures are answered by the same Problem Details handler.
+    http.oauth2ResourceServer(
+        oauth2 ->
+            oauth2
+                .jwt(Customizer.withDefaults())
+                .authenticationEntryPoint(problems)
+                .accessDeniedHandler(problems));
+{{/uses_jwt}}
+{{^uses_jwt}}
+    // The spec declares no JWT-based scheme, so no authentication mechanism is wired and every
+    // secured operation is refused. Configure one here.
+{{/uses_jwt}}
+    return http.build();
+  }
+}

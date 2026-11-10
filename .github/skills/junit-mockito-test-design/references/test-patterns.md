@@ -26,8 +26,8 @@ class OrderServiceTest {
 
   @InjectMocks private OrderService orderService;
 
-  // o2j:unit:happy-path
-  // o2j:unit:repository-interaction-captured
+  // o2j:createOrder:unit:happy-path
+  // o2j:createOrder:unit:repository-interaction-captured
   @Test
   void create_whenPaymentAuthorized_persistsOrderAsConfirmed() {
     var command = OrderFixtures.createCommand().withTotal(new BigDecimal("49.99")).build();
@@ -46,7 +46,7 @@ class OrderServiceTest {
     assertThat(created.status()).isEqualTo(OrderStatus.CONFIRMED);
   }
 
-  // o2j:unit:downstream-failure-mapped
+  // o2j:createOrder:unit:downstream-failure-mapped
   @Test
   void create_whenPaymentDeclined_throwsAndPersistsNothing() {
     var command = OrderFixtures.createCommand().build();
@@ -59,7 +59,7 @@ class OrderServiceTest {
     verify(orderRepository, never()).save(any());
   }
 
-  // o2j:unit:validation-failure
+  // o2j:createOrder:unit:validation-failure
   @ParameterizedTest
   @ValueSource(strings = {"0.00", "-1.00"})
   void create_whenTotalNotPositive_rejectsBeforeCallingPayment(String total) {
@@ -71,7 +71,7 @@ class OrderServiceTest {
     verifyNoInteractions(paymentClient, orderRepository);
   }
 
-  // o2j:unit:idempotent-replay-single-side-effect
+  // o2j:createOrder:unit:idempotent-replay-single-side-effect
   @Test
   void create_whenIdempotencyKeyReplayed_returnsSameOrderAndSavesOnce() {
     var command = OrderFixtures.createCommand().withIdempotencyKey("key-1").build();
@@ -109,7 +109,7 @@ class OrdersApiControllerTest {
   @Autowired private MockMvc mockMvc;
   @MockitoBean private OrderService orderService;
 
-  // o2j:slice:201-location-header
+  // o2j:createOrder:slice:201-location-header
   @Test
   void createOrder_whenValid_returns201WithLocationHeader() throws Exception {
     when(orderService.create(any())).thenReturn(OrderFixtures.confirmed("ord-1"));
@@ -126,7 +126,7 @@ class OrdersApiControllerTest {
         .andExpect(jsonPath("$.status").value("CONFIRMED"));
   }
 
-  // o2j:slice:400-problem-details
+  // o2j:createOrder:slice:400-problem-details
   @Test
   void createOrder_whenQuantityBelowMinimum_returns400ProblemDetail() throws Exception {
     mockMvc.perform(post("/orders")
@@ -144,7 +144,7 @@ class OrdersApiControllerTest {
     verifyNoInteractions(orderService);
   }
 
-  // o2j:slice:missing-required-param-400
+  // o2j:createOrder:slice:missing-required-param-400
   @Test
   void createOrder_whenIdempotencyKeyMissing_returns400() throws Exception {
     mockMvc.perform(post("/orders")
@@ -211,7 +211,9 @@ class OpenApiContractConformanceTest {
     validator = OpenApiValidator.from(Path.of("openapi/spec.canonical.yaml"));
   }
 
-  // o2j:contract:response-schema
+  // One test may claim a case for several operations: one marker per operation.
+  // o2j:createOrder:contract:response-schema
+  // o2j:getOrder:contract:response-schema
   @ParameterizedTest
   @MethodSource("operationSamples")
   void everyResponse_conformsToDeclaredSchema(OperationSample sample) {

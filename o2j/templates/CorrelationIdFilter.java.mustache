@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.UUID;
 import org.slf4j.MDC;
+import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -20,9 +21,12 @@ import {{base_package}}.error.CorrelationId;
  * <p>Accepts an inbound {@code X-Correlation-ID} and generates one otherwise, then echoes it on
  * the response. The id is the only internal identifier that error responses expose - it is
  * meaningless to an attacker and essential to support.
+ *
+ * <p>Runs first, ahead of the security filter chain, so a 401 or 403 carries the correlation
+ * id too. At a lower precedence the security chain answered before the id existed.
  */
 @Component
-@Order(1)
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
   private static final String HEADER = "X-Correlation-ID";

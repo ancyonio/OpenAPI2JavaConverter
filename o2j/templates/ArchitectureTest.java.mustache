@@ -118,9 +118,15 @@ class ArchitectureTest {
           .because("inject an id supplier so generated identifiers are deterministic in tests")
           .allowEmptyShould(true);
 
+  /**
+   * The error package is exempt: it is where framework exceptions are mapped, and several of
+   * them (HandlerMethodValidationException, for one) extend ResponseStatusException.
+   */
   @ArchTest
   static final ArchRule no_response_status_exception =
       noClasses()
+          .that()
+          .resideOutsideOfPackage("..error..")
           .should()
           .dependOnClassesThat()
           .areAssignableTo(ResponseStatusException.class)

@@ -27,6 +27,13 @@
       "title": "Scaffolded",
       "type": "array"
     },
+    "managed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Managed",
+      "type": "array"
+    },
     "conflicts": {
       "items": {
         "type": "string"

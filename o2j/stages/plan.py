@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from urllib.parse import urlparse
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 

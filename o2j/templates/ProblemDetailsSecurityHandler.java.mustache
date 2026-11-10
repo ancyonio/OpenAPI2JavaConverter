@@ -1,0 +1,56 @@
+package {{base_package}}.config;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.HandlerExceptionResolver;
+
+/**
+ * Sends 401 and 403 from the security filter chain through {@code GlobalExceptionHandler}.
+ *
+ * <p>Generated once by o2j; safe to edit. The filter chain runs before Spring MVC, so without
+ * this a security failure bypasses {@code @RestControllerAdvice} entirely and the caller gets an
+ * empty body instead of the Problem Details the spec declares. Delegating to the MVC exception
+ * resolver keeps one error shape, with the correlation id, for every failure.
+ */
+@Component
+public class ProblemDetailsSecurityHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
+
+  private final HandlerExceptionResolver resolver;
+
+  public ProblemDetailsSecurityHandler(
+      @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
+    this.resolver = resolver;
+  }
+
+  @Override
+  public void commence(
+      HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
+      throws IOException {
+    resolve(request, response, exception, HttpServletResponse.SC_UNAUTHORIZED);
+  }
+
+  @Override
+  public void handle(
+      HttpServletRequest request, HttpServletResponse response, AccessDeniedException exception)
+      throws IOException {
+    resolve(request, response, exception, HttpServletResponse.SC_FORBIDDEN);
+  }
+
+  private void resolve(
+      HttpServletRequest request,
+      HttpServletResponse response,
+      RuntimeException exception,
+      int fallbackStatus)
+      throws IOException {
+    if (resolver.resolveException(request, response, null, exception) == null) {
+      response.sendError(fallbackStatus);
+    }
+  }
+}

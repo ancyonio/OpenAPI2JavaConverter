@@ -6,26 +6,27 @@ hopeful one:
 * **determinism** - the same input must always produce the same bytes. Without this the
   generated tree cannot be trusted as build output and every regeneration is a diff review.
 * **drift** - the code on disk must match the spec hash recorded in ``o2j.lock.json``.
-* **contract** - every ``requiredTests`` entry in the plan must have a corresponding test.
+* **contract** - every ``requiredTests`` entry in the plan must be claimed, for its own
+  operation, by a test method that ran and passed (see ``o2j/testmarkers.py``).
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import re
 import tempfile
 from pathlib import Path
 
 from o2j.config import O2JConfig
 from o2j.models import GenerationPlan, VerifyReport
 from o2j.stages.normalize import normalize
+from o2j.testmarkers import read_results, scan
 from o2j.workdir import WorkDir
 
-# Tests declare which required case they cover with a marker comment, e.g.
-#   // o2j:slice:201-location-header
+# Tests declare which required case they cover with a marker comment on the test method:
+#   // o2j:createPet:slice:201-location-header
 # A marker is deliberate and greppable; inferring coverage from method names would guess.
-MARKER = re.compile(r"o2j:([a-z]+:[A-Za-z0-9\-:_]+)")
+REPORT_DIRS = ("target/surefire-reports", "target/failsafe-reports")
 
 
 def verify(
@@ -33,6 +34,7 @@ def verify(
     mode: str = "determinism",
     work: WorkDir | None = None,
     root: str | Path | None = None,
+    require_results: bool = True,
 ) -> VerifyReport:
     work = work or WorkDir()
     project = Path(root) if root else cfg.project_root
@@ -42,7 +44,7 @@ def verify(
     if mode == "drift":
         return _verify_drift(cfg, work, project)
     if mode == "contract":
-        return _verify_contract(cfg, work, project)
+        return _verify_contract(cfg, work, project, require_results)
     raise ValueError(f"unknown verify mode {mode!r}; expected determinism, drift or contract")
 
 
@@ -141,11 +143,16 @@ def _verify_drift(cfg: O2JConfig, work: WorkDir, project: Path) -> VerifyReport:
     )
 
 
-def _verify_contract(cfg: O2JConfig, work: WorkDir, project: Path) -> VerifyReport:
-    """Check that every required test case has a test claiming it.
+def _verify_contract(
+    cfg: O2JConfig, work: WorkDir, project: Path, require_results: bool = True
+) -> VerifyReport:
+    """Check that every required case is claimed, for its operation, by a passing test.
 
-    This is what stops `requiredTests` being advisory. A missing marker means either the test
-    was not written or it was written without declaring what it covers; both need attention.
+    This is what stops `requiredTests` being advisory. Three things must hold for a case:
+    a marker names it *with its operation*, the marker sits on a test method, and (unless
+    ``require_results`` is off) that test ran and passed. Without the operation in the marker,
+    one ``happy-path`` comment satisfied every operation; without the test-method and result
+    checks, a file of comments satisfied everything.
     """
     try:
         plan = work.read_json("plan", "generation-plan.json", GenerationPlan)
@@ -154,34 +161,62 @@ def _verify_contract(cfg: O2JConfig, work: WorkDir, project: Path) -> VerifyRepo
             mode="contract", passed=False, detail="no generation plan; run `o2j plan` first"
         )
 
-    test_root = project / "src" / "test" / "java"
-    claimed: set[str] = set()
-    if test_root.is_dir():
-        for path in test_root.rglob("*.java"):
-            for match in MARKER.finditer(path.read_text(encoding="utf-8", errors="replace")):
-                claimed.add(match.group(1))
+    markers = scan(project / "src" / "test" / "java")
+    report_dirs = [project / d for d in REPORT_DIRS]
+    results = read_results(report_dirs) if require_results else {}
+    if require_results and not results:
+        return VerifyReport(
+            mode="contract",
+            passed=False,
+            detail=(
+                "no test results under target/surefire-reports or target/failsafe-reports. "
+                "Run `mvn verify` first, or pass --static to check markers only."
+            ),
+        )
+
+    by_claim: dict[str, list[str]] = {}
+    unattached: list[str] = []
+    for marker in markers:
+        where = f"{Path(marker.file).name}:{marker.line}"
+        if marker.test is None:
+            unattached.append(f"o2j:{marker.claim} at {where} is not on a test method")
+            continue
+        verdict = "ok"
+        if require_results:
+            outcome = results.get((marker.test.class_name, marker.test.method))
+            if outcome is None:
+                verdict = f"{marker.test.class_name}#{marker.test.method} did not run"
+            elif not outcome.passed:
+                verdict = f"{marker.test.class_name}#{marker.test.method} {outcome.status}"
+        by_claim.setdefault(marker.claim, []).append(verdict)
 
     missing: list[str] = []
     total = 0
     for op in plan.operations:
         for required in op.required_tests:
             total += 1
-            if required not in claimed:
-                missing.append(f"{op.operation_id}: {required}")
+            claim = f"{op.operation_id}:{required}"
+            verdicts = by_claim.get(claim)
+            if not verdicts:
+                missing.append(f"{claim}: no test claims it")
+            elif "ok" not in verdicts:
+                missing.append(f"{claim}: {verdicts[0]}")
 
     if not missing:
+        how = "passing tests" if require_results else "test methods (results not checked)"
         return VerifyReport(
             mode="contract",
             passed=True,
-            detail=f"all {total} required test cases are claimed by a test marker",
+            detail=f"all {total} required test cases are claimed by {how}",
+            differences=unattached[:50],
         )
 
     return VerifyReport(
         mode="contract",
         passed=False,
         detail=(
-            f"{len(missing)} of {total} required test cases have no test. Each test must carry "
-            f"a `// o2j:<case>` marker naming the case it covers."
+            f"{len(missing)} of {total} required test cases are not covered by a passing test. "
+            "Each test method must carry a `// o2j:<operationId>:<case>` marker."
         ),
-        differences=missing[:50],
+        differences=(missing + unattached)[:50],
     )
