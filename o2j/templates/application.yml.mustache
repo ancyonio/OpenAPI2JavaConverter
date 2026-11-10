@@ -61,3 +61,13 @@ logging:
 o2j:
   spec-hash: {{spec_hash}}
   operations: {{operation_count}}
+{{#ems_enabled}}
+  ems:
+    # The TIBCO EMS bridge (EmsBridge). Enable it where the legacy request queues must keep
+    # being served; it needs a JMS ConnectionFactory bean (TibjmsConnectionFactory).
+    enabled: ${O2J_EMS_ENABLED:false}
+    # Where the bridge sends HTTP calls. Defaults to this instance.
+    # target-base-url: http://localhost:8080
+    # The bridge's own bearer token; from a secret, never in this file.
+    bearer-token: ${O2J_EMS_BEARER_TOKEN:}
+{{/ems_enabled}}

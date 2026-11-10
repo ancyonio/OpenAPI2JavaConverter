@@ -12,8 +12,9 @@ import {{base_package}}.config.ProblemDetailsSecurityHandler;
 import {{base_package}}.config.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
+{{#use_spring_boot_4}}import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+{{/use_spring_boot_4}}{{^use_spring_boot_4}}import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+{{/use_spring_boot_4}}import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -64,7 +65,10 @@ class OpenApiSecurityContractTest {
   @Test
   void {{method_name}}_isPublic_notRefused() throws Exception {
     int status =
-        mvc.perform(request(HttpMethod.{{method}}, "{{sample_path}}"))
+        // Reaches an unimplemented operation by design; excluded from conformance checking.
+        mvc.perform(
+                request(HttpMethod.{{method}}, "{{sample_path}}")
+                    .header("X-O2J-Conformance-Skip", "security-probe"))
             .andReturn()
             .getResponse()
             .getStatus();

@@ -206,6 +206,26 @@ class PlannedOperation(Artifact):
         return f"o2j:{self.operation_id}:{case}"
 
 
+class PlannedEmsParam(Artifact):
+    name: str
+    location: str = Field(alias="in")  # path | query | header
+    source: str
+
+
+class PlannedEmsRoute(Artifact):
+    """An EMS request queue bridged onto one operation, validated against the spec."""
+
+    destination: str
+    operation_id: str = Field(alias="operationId")
+    method: str
+    path: str  # including the base path
+    correlation: Literal["message-id", "correlation-id"]
+    reply_timeout_ms: int = Field(alias="replyTimeoutMs")
+    has_body: bool = Field(alias="hasBody")
+    params: list[PlannedEmsParam] = Field(default_factory=list)
+    faults: dict[int, str] = Field(default_factory=dict)
+
+
 class PlannedResource(Artifact):
     tag: str
     api_interface: str = Field(alias="apiInterface")
@@ -242,6 +262,7 @@ class GenerationPlan(Artifact):
     security_schemes: dict[str, str] = Field(default_factory=dict, alias="securitySchemes")
     resources: list[PlannedResource] = Field(default_factory=list)
     risk_score: RiskScore = Field(alias="riskScore")
+    ems_routes: list[PlannedEmsRoute] = Field(default_factory=list, alias="emsRoutes")
 
     @property
     def operations(self) -> list[PlannedOperation]:
@@ -264,6 +285,10 @@ class GenerationResult(Artifact):
     managed: list[str] = Field(default_factory=list)
     conflicts: list[str] = Field(default_factory=list)
     command: list[str] = Field(default_factory=list)
+    # Required test cases o2j generated tests for, and those left to people (as disabled
+    # skeletons). Together they are every required case in the plan.
+    generated_cases: int = Field(default=0, alias="generatedCases")
+    pending_cases: int = Field(default=0, alias="pendingCases")
 
 
 class ToolResult(Artifact):
@@ -297,7 +322,7 @@ class CoverageReport(Artifact):
 
 
 class VerifyReport(Artifact):
-    mode: Literal["determinism", "drift", "contract"]
+    mode: Literal["determinism", "drift", "contract", "conformance"]
     passed: bool
     detail: str
     differences: list[str] = Field(default_factory=list)

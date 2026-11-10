@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
+from o2j import ems
 from o2j.config import O2JConfig
 from o2j.errors import O2JError
 from o2j.models import (
@@ -69,11 +70,13 @@ def plan(
 
     global_security = doc.get("security")
     buckets: dict[str, list[PlannedOperation]] = {}
+    parameters: dict[str, list[CommentedMap]] = {}
 
     for op_path, method, op in operations:
         tag = _primary_tag(op)
         planned = _plan_operation(doc, op_path, method, op, global_security)
         buckets.setdefault(tag, []).append(planned)
+        parameters[planned.operation_id] = _all_parameters(doc, op, op_path)
 
     resources = [
         PlannedResource(
@@ -85,6 +88,16 @@ def plan(
         )
         for tag, ops in sorted(buckets.items())
     ]
+
+    base_path = _base_path(doc)
+    flat = [op for r in resources for op in r.operations]
+    ems_routes = ems.plan_routes(cfg, doc, flat, base_path, parameters)
+    by_id = {op.operation_id: op for op in flat}
+    for route in ems_routes:
+        target = by_id[route.operation_id]
+        target.required_tests += [
+            c for c in ems.required_cases(route) if c not in target.required_tests
+        ]
 
     return GenerationPlan(
         spec_hash=sha256_file(path),
@@ -99,10 +112,11 @@ def plan(
             java_tier=cfg.target.tier,
         ),
         base_package=cfg.service.base_package,
-        base_path=_base_path(doc),
+        base_path=base_path,
         security_schemes=_security_schemes(doc),
         resources=resources,
         risk_score=_score_risk(doc, resources),
+        ems_routes=ems_routes,
     )
 
 
@@ -170,13 +184,15 @@ def derive_required_tests(
             "slice:malformed-json-400",
         ]
 
-    has_path_or_query = any(p.get("in") in ("path", "query") for p in params)
+    # A path parameter cannot be "missing": leaving the segment out is a different route. Only
+    # query, header and cookie parameters can be omitted from an otherwise valid request.
     has_required_param = any(
-        p.get("in") in ("path", "query") and p.get("required") for p in params
+        p.get("in") in ("query", "header", "cookie") and p.get("required") for p in params
     )
     if has_required_param:
         tests.append("slice:missing-required-param-400")
-    if has_path_or_query:
+    # A wrong type is only observable when the parameter is not a free-form string.
+    if any(p.get("in") in ("path", "query") and is_typed_param(p) for p in params):
         tests.append("slice:wrong-param-type-400")
 
     if 404 in op.error_statuses:
@@ -227,6 +243,22 @@ def derive_required_tests(
             seen.add(t)
             ordered.append(t)
     return ordered
+
+
+TYPED_STRING_FORMATS = frozenset({"uuid", "date", "date-time"})
+
+
+def is_typed_param(param: Any) -> bool:
+    """Whether a parameter binds to a Java type that rejects arbitrary text."""
+    schema = param.get("schema") if hasattr(param, "get") else None
+    if not hasattr(schema, "get"):
+        return False
+    kind = schema.get("type")
+    if isinstance(kind, (list, CommentedSeq)):
+        kind = next((k for k in kind if k != "null"), None)
+    if kind in ("integer", "number", "boolean"):
+        return True
+    return kind == "string" and schema.get("format") in TYPED_STRING_FORMATS
 
 
 def _all_parameters(doc: CommentedMap, op: CommentedMap, path: str) -> list[CommentedMap]:

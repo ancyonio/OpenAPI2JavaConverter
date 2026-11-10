@@ -451,6 +451,11 @@
           "title": "Springdoc",
           "type": "string"
         },
+        "springdoc_boot_4": {
+          "default": "3.0.3",
+          "title": "Springdoc Boot 4",
+          "type": "string"
+        },
         "owasp_dependency_check": {
           "title": "Owasp Dependency Check",
           "type": "string"

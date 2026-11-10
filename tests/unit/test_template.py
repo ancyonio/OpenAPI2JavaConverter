@@ -80,6 +80,7 @@ class TestShippedTemplates:
         "pkg_path": "com/example/demo",
         "java_version": 21,
         "spring_boot_version": "3.5.16",
+        "springdoc_version": "2.7.0",
         "use_spring_boot_4": False,
         "use_jackson_3": False,
         "virtual_threads": True,
@@ -118,6 +119,28 @@ class TestShippedTemplates:
         "coverage": {"line_min": 85, "branch_min": 80, "service_layer_line_min": 90},
         "mutation": {"threshold": 70, "coverage_threshold": 85},
         "coverage_excludes": [{"pattern": "**/api/model/**"}],
+        "uses_jwt": True,
+        "always_public": '"/actuator/health"',
+        "security_rules": [
+            {
+                "operation_id": "createOrder",
+                "method": "POST",
+                "pattern": "/v1/orders/{id}",
+                "expression": 'hasAuthority("SCOPE_orders:write")',
+                "comment": "requires SCOPE_orders:write",
+            }
+        ],
+        "unauthenticated_cases": [
+            {
+                "operation_id": "createOrder",
+                "method": "POST",
+                "method_name": "createOrder",
+                "sample_path": "/v1/orders/o2j-test",
+            }
+        ],
+        "wrong_scope_cases": [],
+        "public_cases": [],
+        "mapper": "OrdersMapper",
         "tag": "orders",
         "api_interface": "OrdersApi",
         "delegate": "OrdersApiDelegateImpl",
@@ -178,3 +201,91 @@ class TestShippedTemplates:
         out = render((TEMPLATE_DIR / "pom.mustache").read_text(encoding="utf-8"), self.CONTEXT)
         assert "<generateApiTests>false</generateApiTests>" in out
         assert "<generateModelTests>false</generateModelTests>" in out
+
+    def _pom(self) -> str:
+        return render((TEMPLATE_DIR / "pom.mustache").read_text(encoding="utf-8"), self.CONTEXT)
+
+    def test_pom_has_no_processor_flag_that_breaks_werror(self) -> None:
+        """With -Werror, a -A option no processor claims fails the build of a fresh service."""
+        assert "-Amapstruct" not in self._pom()
+
+    def test_pom_compiles_transactional_rules(self) -> None:
+        assert "<artifactId>spring-tx</artifactId>" in self._pom()
+
+    def test_pom_generates_no_second_main_class(self) -> None:
+        pom = self._pom()
+        assert "<supportingFilesToGenerate>ApiUtil.java," in pom
+        assert "<mainClass>com.example.demo.Application</mainClass>" in pom
+        assert "<configPackage>com.example.demo.api.config</configPackage>" in pom
+
+    def test_security_rules_render_patterns_verbatim(self) -> None:
+        out = render(
+            (TEMPLATE_DIR / "OpenApiSecurityRules.java.mustache").read_text(encoding="utf-8"),
+            self.CONTEXT,
+        )
+        assert '.requestMatchers(HttpMethod.POST, "/v1/orders/{id}")' in out
+        assert '.hasAuthority("SCOPE_orders:write")' in out
+        assert out.rstrip().endswith("}")
+        assert ".denyAll();" in out
+
+    def test_security_contract_test_carries_scoped_markers(self) -> None:
+        out = render(
+            (TEMPLATE_DIR / "OpenApiSecurityContractTest.java.mustache").read_text(
+                encoding="utf-8"
+            ),
+            self.CONTEXT,
+        )
+        assert "// o2j:createOrder:slice:unauthenticated-401" in out
+
+    def test_delegate_operation_notes_are_not_javadoc(self) -> None:
+        """A dangling doc comment fails JDK 23+ under -Werror once a method is added below."""
+        out = render(
+            (TEMPLATE_DIR / "DelegateImpl.java.mustache").read_text(encoding="utf-8"),
+            self.CONTEXT,
+        )
+        class_body = out[out.index("public class") :]
+        assert "/**" not in class_body
+
+    def test_exceptions_declare_serial_version(self) -> None:
+        for name in ("DomainException", "NotFoundException", "ConflictException"):
+            out = (TEMPLATE_DIR / f"{name}.java.mustache").read_text(encoding="utf-8")
+            assert "serialVersionUID" in out, name
+
+    def _boot4(self, template: str) -> str:
+        context = {
+            **self.CONTEXT,
+            "use_spring_boot_4": True,
+            "use_jackson_3": True,
+            "spring_boot_version": "4.0.9",
+            "springdoc_version": "3.0.3",
+        }
+        return render((TEMPLATE_DIR / template).read_text(encoding="utf-8"), context)
+
+    def test_boot4_pom_uses_boot4_artifacts(self) -> None:
+        """Each line here was a Boot 4 build failure or a deprecated-starter warning."""
+        pom = self._boot4("pom.mustache")
+        assert "<useJspecify>true</useJspecify>" in pom
+        assert "<springdoc.version>3.0.3</springdoc.version>" in pom
+        assert "<artifactId>spring-boot-starter-webmvc</artifactId>" in pom
+        assert "<artifactId>spring-boot-starter-web</artifactId>" not in pom
+        assert "<artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>" in pom
+        assert "<artifactId>spring-boot-starter-webmvc-test</artifactId>" in pom
+        assert (
+            "<artifactId>spring-boot-starter-security-oauth2-resource-server-test</artifactId>"
+            in pom
+        )
+        assert "<artifactId>testcontainers-junit-jupiter</artifactId>" in pom
+        assert "testcontainers.version" not in pom
+
+    def test_boot3_pom_keeps_boot3_artifacts(self) -> None:
+        pom = self._pom()
+        assert "<springdoc.version>2.7.0</springdoc.version>" in pom
+        assert "<artifactId>spring-boot-starter-web</artifactId>" in pom
+        assert "useJspecify" not in pom
+        assert "spring-boot-starter-webmvc-test" not in pom
+
+    def test_security_test_imports_webmvctest_from_the_right_package(self) -> None:
+        name = "OpenApiSecurityContractTest.java.mustache"
+        assert "org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest" in self._boot4(name)
+        boot3 = render((TEMPLATE_DIR / name).read_text(encoding="utf-8"), self.CONTEXT)
+        assert "org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest" in boot3

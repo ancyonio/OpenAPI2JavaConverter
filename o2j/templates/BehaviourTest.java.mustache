@@ -1,0 +1,50 @@
+package {{base_package}}.api;
+
+import static org.junit.jupiter.api.Assertions.fail;
+
+import {{base_package}}.config.ProblemDetailsSecurityHandler;
+import {{base_package}}.config.SecurityConfig;
+import {{base_package}}.mapper.{{mapper}}Impl;
+import {{base_package}}.service.{{service}};
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+{{#use_spring_boot_4}}import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+{{/use_spring_boot_4}}{{^use_spring_boot_4}}import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+{{/use_spring_boot_4}}import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+/**
+ * Slice tests for {{api_interface}} with the real delegate and mapper and a Mockito service:
+ * HTTP behaviour that depends on what the service returns.
+ *
+ * <p>Scaffolded once by o2j from {{spec_hash}}; yours to edit and never overwritten. The
+ * contract cases the spec determines are generated in {@code contract.{{api_interface}}ContractTest};
+ * what is left here needs business knowledge - a Location header's value, what an empty or
+ * last page looks like, which precondition is stale. Each method is {@code @Disabled} with its
+ * marker in place, so the contract gate counts it as missing until it is written.
+ */
+@WebMvcTest(controllers = {{api_interface}}Controller.class)
+@Import({
+  {{delegate}}.class,
+  {{mapper}}Impl.class,
+  SecurityConfig.class,
+  ProblemDetailsSecurityHandler.class
+})
+class {{api_interface}}BehaviourTest {
+
+  @Autowired private MockMvc mvc;
+  @MockitoBean private {{service}} service;
+{{#pending_slice}}
+  // o2j:{{operation_id}}:{{case}}
+  @Test
+  @Disabled("TODO(O2J): write {{operation_id}} {{case}}")
+  void {{method_name}}() {
+    if (mvc == null || service == null) {
+      fail("context did not load");
+    }
+    fail("not written yet");
+  }
+{{/pending_slice}}
+}

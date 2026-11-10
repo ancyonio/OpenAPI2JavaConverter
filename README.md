@@ -175,6 +175,18 @@ subscription. The Boot version is a profile, not a constant: switch
 `target.spring_profile` to `spring-boot-4` (Java 17 floor is unchanged) when you are ready.
 `o2j doctor` says this on every run.
 
+**Spring Boot 4.0 and 4.x are supported and built.** The `spring-boot-4` profile uses
+`versions.spring_boot_4` (pinned 4.1.0); set it to a 4.0.x release such as `4.0.9` to target
+Boot 4.0. The profile switches what Boot 4 changed: the renamed `webmvc` and
+`security-oauth2-resource-server` starters, the split test modules (`@WebMvcTest` moved to
+`org.springframework.boot.webmvc.test.autoconfigure`, and slices only load security with
+`spring-boot-starter-security-oauth2-resource-server-test`), Jackson 3, JSpecify nullness
+annotations in the generated DTOs (Spring 7 deprecates `org.springframework.lang.Nullable`,
+which fails `-Werror`), springdoc 3.x (`versions.springdoc_boot_4`) and Testcontainers 2.x.
+Every combination of Java 17/21 with Boot 3.5, 4.0 and the pinned 4.x is compiled and tested
+by `tests/integration/test_generated_service_builds.py`, on real JDKs in the `build` job of
+`o2j-matrix.yml`.
+
 **OpenAPI 3.2.0 cannot reach the generator.** `openapi-generator` parses through
 `swagger-parser`, which does not support 3.2
 ([swagger-api/swagger-parser#2248](https://github.com/swagger-api/swagger-parser/issues/2248)).
@@ -193,6 +205,16 @@ downgrade is still needed.
 
 The version is never hardcoded: it is a Maven toolchain value from `o2j.yaml`, and the CI
 matrix is generated from it. Adding Java 29 is a one-line config change.
+
+The generated service itself is built on Java 17 and 21 (Boot 3.5, 4.0 and 4.x) by the
+integration tests:
+
+```bash
+O2J_JAVA_IT=1 O2J_JDK_17=/path/to/jdk-17 python -I -m pytest tests/integration -v
+```
+
+Without `O2J_JDK_17`, the Java 17 cases compile with `--release 17` on the running JDK, which
+checks the language level and API but not a Java 17 runtime.
 
 A tier-2 JDK with `service.profile: production` raises `JAVA_TIER2_IN_PRODUCTION` and fails
 validation — shipping production on a JDK with no security updates should be an explicit

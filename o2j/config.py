@@ -97,6 +97,9 @@ class VersionsConfig(StrictModel):
     archunit: str
     testcontainers: str
     springdoc: str
+    # springdoc 2.x is built for Spring Boot 3, 3.x for Spring Boot 4. Optional so existing
+    # o2j.yaml files stay valid; used only by the spring-boot-4 profile.
+    springdoc_boot_4: str = "3.0.3"
     owasp_dependency_check: str
     cyclonedx: str
 
@@ -185,6 +188,31 @@ class QualityConfig(StrictModel):
     sonar: SonarConfig = Field(default_factory=SonarConfig)
 
 
+class EmsRouteConfig(StrictModel):
+    """One TIBCO EMS request queue served by one spec operation (see o2j/ems.py)."""
+
+    destination: str
+    operation: str
+    # How the reply is correlated: the request's JMSMessageID (the TIBCO request/reply default)
+    # or its JMSCorrelationID (when the requester sets one and waits on a shared reply queue).
+    correlation: Literal["message-id", "correlation-id"] = "message-id"
+    reply_timeout_ms: int | None = None
+    # HTTP parameter name -> source. Sources: property:<name>, jms:JMSMessageID,
+    # jms:JMSCorrelationID, json:<pointer into the message body>, literal:<value>.
+    # Unlisted parameters default to property:<name with non-identifier chars as _>.
+    params: dict[str, str] = Field(default_factory=dict)
+    # HTTP status -> the legacy fault code EMS consumers already handle.
+    faults: dict[int, str] = Field(default_factory=dict)
+
+
+class EmsConfig(StrictModel):
+    """TIBCO EMS request/reply queues the REST service replaces (optional)."""
+
+    enabled: bool = False
+    reply_timeout_ms: int = 5000
+    routes: list[EmsRouteConfig] = Field(default_factory=list)
+
+
 class O2JConfig(StrictModel):
     """The whole of ``o2j.yaml``."""
 
@@ -195,6 +223,7 @@ class O2JConfig(StrictModel):
     openapi: OpenApiConfig = Field(default_factory=OpenApiConfig)
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
     generation: GenerationConfig = Field(default_factory=GenerationConfig)
+    ems: EmsConfig = Field(default_factory=EmsConfig)
     quality: QualityConfig = Field(default_factory=QualityConfig)
 
     # Set by the loader; not part of the file.

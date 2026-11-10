@@ -76,3 +76,36 @@ jobs:
           JAVA_TARGET: ${{ matrix.java }}
           EXPECT: ${{ matrix.expect_exit || 0 }}
           PROFILE: ${{ matrix.tier == 2 && 'sandbox' || 'production' }}
+
+  # The job above stops at `--no-run-generator`, so it never compiles Java. This one builds
+  # the generated service with Maven (scaffold + generator + -Werror compile + the scaffolded
+  # and managed tests) on a real JDK of each LTS floor, for both Spring Boot lines: 3.5, 4.0
+  # and the pinned 4.x. See tests/integration/test_generated_service_builds.py.
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ["17", "21"]
+    name: Build generated service / Java ${{ matrix.java }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -e ".[dev]"
+
+      - name: Build and test generated services (Boot 3.5, 4.0, pinned 4.x)
+        run: |
+          export "O2J_JDK_${{ matrix.java }}=$JAVA_HOME"
+          python -I -m pytest tests/integration -v -k "java${{ matrix.java }}"
+        env:
+          O2J_JAVA_IT: "1"

@@ -1,0 +1,53 @@
+package {{base_package}}.service;
+
+import static org.junit.jupiter.api.Assertions.fail;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+/**
+ * Unit tests for {@link {{service}}}: the business rules the spec cannot state.
+ *
+ * <p>Scaffolded once by o2j from {{spec_hash}}; yours to edit and never overwritten. Every
+ * method below is a required case o2j could not derive from the spec. Each is {@code @Disabled}
+ * with its marker already in place, so {@code o2j verify --mode contract} keeps counting it as
+ * missing until someone writes it and removes {@code @Disabled}. A test that asserted nothing
+ * would pass that gate; the mutation gate on this package is what catches that.
+ *
+ * <p>Pattern: Mockito for collaborators ({@code @Mock} repositories and clients, injected
+ * through the constructor), a fixed {@link Clock}, one behaviour per test.
+ */
+@ExtendWith(MockitoExtension.class)
+class {{service}}Test {
+
+  private static final Instant NOW = Instant.parse("2026-01-15T10:15:30Z");
+
+  private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+  private {{service}} service;
+
+  @BeforeEach
+  void setUp() {
+    service = new {{service}}(clock);
+  }
+{{#pending_unit}}
+  // o2j:{{operation_id}}:{{case}}
+  @Test
+  @Disabled("TODO(O2J): write {{operation_id}} {{case}}")
+  void {{method_name}}() {
+    assertServiceUnderTest();
+    fail("not written yet");
+  }
+{{/pending_unit}}
+
+  private void assertServiceUnderTest() {
+    if (service == null) {
+      fail("setUp did not run");
+    }
+  }
+}

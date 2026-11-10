@@ -22,11 +22,12 @@ import {{base_package}}.error.CorrelationId;
  * the response. The id is the only internal identifier that error responses expose - it is
  * meaningless to an attacker and essential to support.
  *
- * <p>Runs first, ahead of the security filter chain, so a 401 or 403 carries the correlation
+ * <p>Runs ahead of the security filter chain (only the test-time conformance recorder runs
+ * earlier), so a 401 or 403 carries the correlation
  * id too. At a lower precedence the security chain answered before the id existed.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
   private static final String HEADER = "X-Correlation-ID";

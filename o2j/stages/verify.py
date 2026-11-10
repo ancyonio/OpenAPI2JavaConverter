@@ -8,6 +8,8 @@ hopeful one:
 * **drift** - the code on disk must match the spec hash recorded in ``o2j.lock.json``.
 * **contract** - every ``requiredTests`` entry in the plan must be claimed, for its own
   operation, by a test method that ran and passed (see ``o2j/testmarkers.py``).
+* **conformance** - every HTTP exchange recorded during the test run must match the spec:
+  declared status, declared content type, schema-valid body (see ``o2j/conformance.py``).
 """
 
 from __future__ import annotations
@@ -17,8 +19,12 @@ import json
 import tempfile
 from pathlib import Path
 
+from typing import Any
+
+from o2j import conformance
 from o2j.config import O2JConfig
 from o2j.models import GenerationPlan, VerifyReport
+from o2j.specdoc import load_spec
 from o2j.stages.normalize import normalize
 from o2j.testmarkers import read_results, scan
 from o2j.workdir import WorkDir
@@ -45,7 +51,11 @@ def verify(
         return _verify_drift(cfg, work, project)
     if mode == "contract":
         return _verify_contract(cfg, work, project, require_results)
-    raise ValueError(f"unknown verify mode {mode!r}; expected determinism, drift or contract")
+    if mode == "conformance":
+        return _verify_conformance(work, project)
+    raise ValueError(
+        f"unknown verify mode {mode!r}; expected determinism, drift, contract or conformance"
+    )
 
 
 def _verify_determinism(cfg: O2JConfig, work: WorkDir) -> VerifyReport:
@@ -143,6 +153,73 @@ def _verify_drift(cfg: O2JConfig, work: WorkDir, project: Path) -> VerifyReport:
     )
 
 
+def _conformance(
+    work: WorkDir, project: Path, plan: GenerationPlan
+) -> conformance.ConformanceResult:
+    spec = _canonical_spec(work, project)
+    if spec is None:
+        return conformance.ConformanceResult(found=False)
+    return conformance.check(project, spec, plan.base_path)
+
+
+def _canonical_spec(work: WorkDir, project: Path) -> dict[str, Any] | None:
+    for candidate in (
+        work.path("normalize", "spec.canonical.yaml", create=False),
+        project / "openapi" / "spec.canonical.yaml",
+    ):
+        if candidate.is_file():
+            loaded: dict[str, Any] = json.loads(json.dumps(load_spec(candidate)))
+            return loaded
+    return None
+
+
+def _schema_problem(result: conformance.ConformanceResult, operation_id: str) -> str | None:
+    if not result.found:
+        return "no recorded exchanges (target/o2j-conformance); the recorder did not run"
+    stats = result.by_operation.get(operation_id)
+    if stats is None or stats.conforming_success == 0:
+        return "no recorded 2xx response conforms to the spec"
+    if stats.violations:
+        return f"recorded responses violate the spec: {stats.violations[0]}"
+    return None
+
+
+def _verify_conformance(work: WorkDir, project: Path) -> VerifyReport:
+    """Every recorded exchange that belongs to a spec operation must match the spec."""
+    try:
+        plan = work.read_json("plan", "generation-plan.json", GenerationPlan)
+    except Exception:
+        return VerifyReport(
+            mode="conformance", passed=False, detail="no generation plan; run `o2j plan` first"
+        )
+    result = _conformance(work, project, plan)
+    if not result.found:
+        return VerifyReport(
+            mode="conformance",
+            passed=False,
+            detail=(
+                "no recorded exchanges under target/o2j-conformance. Run `mvn verify` first; "
+                "the generated O2jConformanceRecorder writes them during the tests."
+            ),
+        )
+    untested = sorted(
+        op.operation_id for op in plan.operations if op.operation_id not in result.by_operation
+    )
+    violations = result.violations
+    summary = (
+        f"{result.checked} exchange(s) checked against the spec, {result.ignored} outside it; "
+        f"{len(violations)} violation(s)"
+    )
+    if untested:
+        summary += f"; no exchange recorded for {', '.join(untested)}"
+    return VerifyReport(
+        mode="conformance",
+        passed=not violations and not untested,
+        detail=summary,
+        differences=(violations + [f"{o}: no exchange recorded" for o in untested])[:50],
+    )
+
+
 def _verify_contract(
     cfg: O2JConfig, work: WorkDir, project: Path, require_results: bool = True
 ) -> VerifyReport:
@@ -190,6 +267,10 @@ def _verify_contract(
                 verdict = f"{marker.test.class_name}#{marker.test.method} {outcome.status}"
         by_claim.setdefault(marker.claim, []).append(verdict)
 
+    # `contract:response-schema` is about what the service returned, so a passing test is not
+    # enough: the recorded responses for the operation must also conform to the spec.
+    schema_check = _conformance(work, project, plan) if require_results else None
+
     missing: list[str] = []
     total = 0
     for op in plan.operations:
@@ -201,6 +282,10 @@ def _verify_contract(
                 missing.append(f"{claim}: no test claims it")
             elif "ok" not in verdicts:
                 missing.append(f"{claim}: {verdicts[0]}")
+            elif required == "contract:response-schema" and schema_check is not None:
+                problem = _schema_problem(schema_check, op.operation_id)
+                if problem:
+                    missing.append(f"{claim}: {problem}")
 
     if not missing:
         how = "passing tests" if require_results else "test methods (results not checked)"
