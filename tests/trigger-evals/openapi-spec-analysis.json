@@ -1,0 +1,70 @@
+[
+  {
+    "query": "boss wants an estimate for implementing this spec. 60-odd operations, no idea how to size it beyond counting endpoints",
+    "should_trigger": true
+  },
+  {
+    "query": "we're releasing v2 of the api next month. i have both spec versions, is the diff backward compatible or are we breaking clients",
+    "should_trigger": true
+  },
+  {
+    "query": "inherited an 8000 line openapi file and i have to explain to the team on monday what this api actually does. where do i even start",
+    "should_trigger": true
+  },
+  {
+    "query": "which of these 40 endpoints should we build first? trying to sequence the work by how risky each one looks",
+    "should_trigger": true
+  },
+  {
+    "query": "the spec changed upstream. which of our files are going to need touching, and can you tell me before i start",
+    "should_trigger": true
+  },
+  {
+    "query": "need a report of how many of our declared operations actually have an implementation and a test. suspect it's not all of them",
+    "should_trigger": true
+  },
+  {
+    "query": "are there endpoints in our running service that aren't in the published spec? i think a couple were added directly to controllers",
+    "should_trigger": true
+  },
+  {
+    "query": "give me the numbers on this spec — operations, schemas, how many are polymorphic, how deep the allOf chains go",
+    "should_trigger": true
+  },
+  {
+    "query": "can you take a look at api/openapi.yaml before i hand it to the backend team? they're going to generate the server off it and i want to know if anything's going to bite us",
+    "should_trigger": false
+  },
+  {
+    "query": "lint this swagger file for me and tell me what's wrong with it, i inherited it from a contractor and i don't trust it",
+    "should_trigger": false
+  },
+  {
+    "query": "convert this swagger 2.0 file to openapi 3.1 — it's got body params and a host/basePath block, definitions, the lot",
+    "should_trigger": false
+  },
+  {
+    "query": "what actually changes between openapi 3.0 and 3.1 that would affect generated code? trying to write the migration ticket properly",
+    "should_trigger": false
+  },
+  {
+    "query": "how many lines of java are in this repo, broken down by package",
+    "should_trigger": false
+  },
+  {
+    "query": "run a dependency analysis and tell me which of our libraries are unmaintained",
+    "should_trigger": false
+  },
+  {
+    "query": "profile the service under load and tell me where the time goes",
+    "should_trigger": false
+  },
+  {
+    "query": "generate api documentation from the spec and publish it to our developer portal",
+    "should_trigger": false
+  },
+  {
+    "query": "before i merge this PR that changes openapi/spec.raw.yaml, is there anything in the diff that would break existing clients? it adds two fields and changes an enum",
+    "should_trigger": true
+  }
+]

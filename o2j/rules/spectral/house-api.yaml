@@ -1,0 +1,116 @@
+# House API standards as a Spectral ruleset.
+#
+# This mirrors o2j/rules/naming.py so developers get the same findings in their editor.
+# The pipeline gates on the Python implementation, which needs no Node toolchain; keep the
+# two in step when either changes.
+extends: ["spectral:oas"]
+
+rules:
+  o2j-path-kebab-case:
+    description: Path segments must be kebab-case; they become URLs, not Java identifiers.
+    given: $.paths[*]~
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(/([a-z0-9]+(-[a-z0-9]+)*|\\{[a-zA-Z0-9_]+\\}))+$"
+
+  o2j-no-verbs-in-path:
+    description: Express actions with HTTP methods, not path verbs.
+    given: $.paths[*]~
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "/(get|create|update|delete|fetch|list|put|post|add|remove|retrieve|search)([/-]|$)"
+
+  o2j-operation-id-required:
+    description: >
+      Every operation needs an operationId. Without one the generator derives an unstable
+      method name from the path, so editing the path renames the generated method.
+    given: $.paths[*][get,put,post,delete,patch,head,options,trace]
+    severity: error
+    then:
+      field: operationId
+      function: truthy
+
+  o2j-operation-id-camel-case:
+    description: operationId becomes a Java method name, so it must be camelCase.
+    given: $.paths[*][get,put,post,delete,patch,head,options,trace].operationId
+    severity: error
+    then:
+      function: casing
+      functionOptions:
+        type: camel
+
+  o2j-error-400-declared:
+    description: Every operation must declare a 400 response.
+    given: $.paths[*][get,put,post,delete,patch].responses
+    severity: error
+    then:
+      field: "400"
+      function: truthy
+
+  o2j-error-500-declared:
+    description: Every operation must declare a 500 response.
+    given: $.paths[*][get,put,post,delete,patch].responses
+    severity: error
+    then:
+      field: "500"
+      function: truthy
+
+  o2j-problem-details-media-type:
+    description: Error responses must use application/problem+json (RFC 9457).
+    given: $.paths[*][*].responses[?(@property.match(/^[45]/))].content
+    severity: error
+    then:
+      field: application/problem+json
+      function: truthy
+
+  o2j-no-inline-request-schema:
+    description: >
+      Inline object schemas generate ordinal class names that renumber when the document is
+      edited. Define them in components.schemas and $ref them.
+    given: $.paths[*][put,post,patch].requestBody.content[*].schema
+    severity: error
+    then:
+      field: $ref
+      function: truthy
+
+  o2j-collection-pagination:
+    description: Collection GETs must expose page/size or cursor parameters.
+    given: $.paths[*].get
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          properties:
+            parameters:
+              type: array
+              contains:
+                type: object
+                properties:
+                  name:
+                    enum: [page, size, limit, cursor, offset, pageToken]
+                required: [name]
+          required: [parameters]
+
+  o2j-security-schemes-declared:
+    description: At least one security scheme must exist, or nothing can be secured.
+    given: $
+    severity: error
+    then:
+      field: components.securitySchemes
+      function: truthy
+
+  o2j-no-nullable-in-31:
+    description: >
+      `nullable` is not an OpenAPI 3.1 keyword. It is silently ignored, so the generated Java
+      field will not be nullable as intended. Use a type union instead.
+    given: $..[?(@.nullable)]
+    severity: error
+    then:
+      field: nullable
+      function: falsy

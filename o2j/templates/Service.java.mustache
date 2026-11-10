@@ -1,0 +1,45 @@
+package {{base_package}}.service;
+
+import java.time.Clock;
+import org.springframework.stereotype.Service;
+
+/**
+ * Business logic for {{tag}}.
+ *
+ * <p>Scaffolded once by o2j from {{spec_hash}}; yours to edit and never overwritten.
+ *
+ * <p>Rules this class must keep, because ArchUnit enforces them:
+ *
+ * <ul>
+ *   <li>No generated DTO in any signature. Take and return domain types, so a spec change does
+ *       not ripple into business logic or tests.
+ *   <li>Constructor injection, {@code private final} fields.
+ *   <li>{@code @Transactional} here and nowhere else, on public methods only, with
+ *       {@code readOnly = true} on queries.
+ *   <li>Read time from the injected {@link Clock}, never {@code Instant.now()}.
+ *   <li>Throw domain exceptions, never {@code ResponseStatusException}.
+ *   <li>Set a connect and a read timeout on every outbound call.
+ * </ul>
+ */
+@Service
+public class {{service}} {
+
+  private final Clock clock;
+
+  public {{service}}(Clock clock) {
+    this.clock = clock;
+  }
+
+  /** Exposed so subclasses and helpers read time the same testable way. */
+  protected Clock clock() {
+    return clock;
+  }
+{{#operations}}
+
+  // TODO(O2J): {{operation_id}} - {{method}} {{path}}
+  //   Request: {{request_type}} / Response: {{response_type}}
+  //   Implement the business rule the spec implies. If the spec does not state a rule, leave
+  //   this TODO with a specific question rather than inventing one: a plausible invented rule
+  //   will pass review, and a stated gap will not.
+{{/operations}}
+}

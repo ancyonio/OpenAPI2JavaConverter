@@ -1,0 +1,49 @@
+name: O2J Determinism
+
+# Generate twice from the same canonical spec and diff. This catches the three recurring
+# causes of non-reproducible output: a leaked timestamp, unordered map iteration, and ordinal
+# inline-schema naming. Any of them turns "regenerate from the spec" into a diff review.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  determinism:
+    runs-on: ubuntu-latest
+    env:
+      LC_ALL: C
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e ".[dev]"
+
+      - name: Lint and type-check
+        run: |
+          python -I -m ruff check o2j tests
+          python -I -m mypy o2j
+
+      - name: Skills mirrors are in sync
+        # skills/ is canonical; .github/skills is what Copilot reads. A stale mirror serves
+        # Copilot old guidance while the canonical copy has moved on.
+        run: python -I -m o2j skills check
+
+      - name: Unit tests
+        run: python -I -m pytest -q
+
+      - name: Determinism across every corpus fixture
+        run: |
+          for fixture in 00-minimal 01-petstore-3.0 02-petstore-3.1 03-swagger-2.0; do
+            echo "--- $fixture"
+            python -I -m o2j ingest "tests/corpus/$fixture/spec.yaml"
+            python -I -m o2j verify --mode determinism
+          done

@@ -1,0 +1,70 @@
+[
+  {
+    "query": "the payment gateway went slow last night — not down, just slow — and our whole thread pool filled up and we stopped answering health checks",
+    "should_trigger": true
+  },
+  {
+    "query": "adding a call to the inventory service. what do i need to set so this can't take us down when they have a bad day",
+    "should_trigger": true
+  },
+  {
+    "query": "we had a 20 minute incident and i genuinely cannot tell from the logs which downstream was the cause",
+    "should_trigger": true
+  },
+  {
+    "query": "should we retry the POST to the payment gateway on a read timeout? ops want retries, finance is worried about double charges",
+    "should_trigger": true
+  },
+  {
+    "query": "every deploy produces a handful of 500s and we've stopped alerting on error rate because of it",
+    "should_trigger": true
+  },
+  {
+    "query": "a customer reported a 500 and gave us the correlationId from the response but i can't find it in kibana",
+    "should_trigger": true
+  },
+  {
+    "query": "our retries are making outages worse. three levels of retry and a recovering dependency gets hammered flat again",
+    "should_trigger": true
+  },
+  {
+    "query": "what should we actually be measuring on this service? right now we have http request count and nothing else",
+    "should_trigger": true
+  },
+  {
+    "query": "review my OrdersApiDelegateImpl — i think the @Transactional might be in the wrong place and i'm not sure the Location header is being set on the 201",
+    "should_trigger": false
+  },
+  {
+    "query": "how do i test what happens when the payment gateway goes slow rather than down? the sandbox won't give me a timeout on demand",
+    "should_trigger": false
+  },
+  {
+    "query": "GET /orders is issuing 51 queries for 50 orders. the Order entity has a @OneToMany for items and the mapper touches getItems() in a loop",
+    "should_trigger": false
+  },
+  {
+    "query": "our kubernetes readiness probe is failing during startup because the liveness probe kills the pod before flyway finishes",
+    "should_trigger": false
+  },
+  {
+    "query": "set up prometheus and grafana in our cluster, we need persistent storage for the metrics",
+    "should_trigger": false
+  },
+  {
+    "query": "our datadog bill tripled last month. i think it's custom metric cardinality but i don't know how to confirm",
+    "should_trigger": false
+  },
+  {
+    "query": "configure the istio sidecar to do retries and circuit breaking at the mesh level instead of in the app",
+    "should_trigger": false
+  },
+  {
+    "query": "our nodejs service leaks memory under load, heap grows until the pod is oom killed",
+    "should_trigger": false
+  },
+  {
+    "query": "the payment gateway went slow last night and our whole thread pool filled up and the service stopped responding to health checks",
+    "should_trigger": true
+  }
+]

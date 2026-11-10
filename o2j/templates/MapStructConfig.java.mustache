@@ -1,0 +1,20 @@
+package {{base_package}}.mapper;
+
+import org.mapstruct.InjectionStrategy;
+import org.mapstruct.MapperConfig;
+import org.mapstruct.MappingConstants;
+import org.mapstruct.ReportingPolicy;
+
+/**
+ * Shared settings for every mapper. Generated once by o2j; safe to edit.
+ *
+ * <p>{@code unmappedTargetPolicy = ERROR} is the point: when the spec adds a field to a DTO and
+ * nobody maps it, the build fails instead of the field silently arriving empty. It is set here
+ * rather than as a {@code -Amapstruct...} compiler flag, because with {@code -Werror} that flag
+ * breaks the build whenever no mapper exists yet.
+ */
+@MapperConfig(
+    componentModel = MappingConstants.ComponentModel.SPRING,
+    injectionStrategy = InjectionStrategy.CONSTRUCTOR,
+    unmappedTargetPolicy = ReportingPolicy.ERROR)
+public interface MapStructConfig {}

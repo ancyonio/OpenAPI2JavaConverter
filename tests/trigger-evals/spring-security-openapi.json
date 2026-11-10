@@ -1,0 +1,66 @@
+[
+  {
+    "query": "our spec declares orders:write on the POST but i'm not sure the @PreAuthorize is actually doing anything. a token with only orders:read seems to get through",
+    "should_trigger": true
+  },
+  {
+    "query": "writing the SecurityFilterChain for a new resource server. jwt bearer tokens, the spec has a clientCredentials flow with two scopes",
+    "should_trigger": true
+  },
+  {
+    "query": "clients are getting 403 when their token has expired. shouldn't that be a 401? their retry logic is looping forever",
+    "should_trigger": true
+  },
+  {
+    "query": "a token minted by our issuer for a different service validates fine against our api. i think we're not checking something",
+    "should_trigger": true
+  },
+  {
+    "query": "we added a new endpoint last sprint and it turns out it was completely unauthenticated for two weeks. how do i make that impossible rather than unlikely",
+    "should_trigger": true
+  },
+  {
+    "query": "do i disable csrf on this api? it's stateless with bearer tokens but i don't want to just copy a snippet off stack overflow",
+    "should_trigger": true
+  },
+  {
+    "query": "our 401 responses have an empty body and the mobile team can't tell why auth failed. everything else returns problem+json",
+    "should_trigger": true
+  },
+  {
+    "query": "the service needs to check that a caller may only read their own orders. the scope says orders:read but that's not enough, where does that check live",
+    "should_trigger": true
+  },
+  {
+    "query": "can you take a look at api/openapi.yaml before i hand it to the backend team? they're going to generate the server off it and i want to know if anything's going to bite us",
+    "should_trigger": false
+  },
+  {
+    "query": "review my OrdersApiDelegateImpl — i think the @Transactional might be in the wrong place and i'm not sure the Location header is being set on the 201",
+    "should_trigger": false
+  },
+  {
+    "query": "we keep getting InlineObject4, InlineObject7 etc as class names out of openapi-generator and they move around between branches. spec is at contracts/orders.yaml",
+    "should_trigger": false
+  },
+  {
+    "query": "gitleaks found an aws key in a commit from eight months ago. we removed the line in a follow-up commit, is that enough",
+    "should_trigger": false
+  },
+  {
+    "query": "set up keycloak as our identity provider, we need realms for three environments and a terraform module for the clients",
+    "should_trigger": false
+  },
+  {
+    "query": "our nginx ingress needs mutual tls to the upstream service. where do the client certs go",
+    "should_trigger": false
+  },
+  {
+    "query": "we're moving from session cookies to jwt in a server-rendered thymeleaf app with form login",
+    "should_trigger": false
+  },
+  {
+    "query": "rotate the signing key on our auth server without invalidating every live token",
+    "should_trigger": false
+  }
+]

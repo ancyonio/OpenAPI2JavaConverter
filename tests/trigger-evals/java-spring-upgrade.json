@@ -1,0 +1,86 @@
+[
+  {
+    "query": "we're on spring boot 3.5.16 and i've been told that's EOL now. what's involved in getting to 4.x and does it force a jdk bump",
+    "should_trigger": true
+  },
+  {
+    "query": "upgrade this project from java 17 to 21. there's already a mockito bytebuddy warning in the build output",
+    "should_trigger": true
+  },
+  {
+    "query": "what java version should this service be on? we're on 17 and the platform team is offering us 23 or 25 images",
+    "should_trigger": true
+  },
+  {
+    "query": "build started failing after i bumped the jdk in the dockerfile. errors about an agent not being able to attach, and jacoco reports came out empty",
+    "should_trigger": true
+  },
+  {
+    "query": "boss wants an estimate for the boot 2.7 to 3.x migration. roughly 180 java files, spring security config, hibernate 5",
+    "should_trigger": true
+  },
+  {
+    "query": "how much work is jackson 2 to jackson 3 realistically? we have four custom serializers and a fairly configured ObjectMapper",
+    "should_trigger": true
+  },
+  {
+    "query": "is it safe to run production on java 23? it's what's on the base image we've been given and i'd rather not argue without facts",
+    "should_trigger": true
+  },
+  {
+    "query": "we want virtual threads. we're on boot 3.2 and java 17 currently. what has to change and in what order",
+    "should_trigger": true
+  },
+  {
+    "query": "after the boot upgrade a couple of our routes 404 that used to work. they had trailing slashes in the client calls",
+    "should_trigger": true
+  },
+  {
+    "query": "one of our starters has no release for the new boot version. does that block the whole upgrade or can we work around it",
+    "should_trigger": true
+  },
+  {
+    "query": "review my OrderService — constructor injection looks fine but i'm unsure about the transaction boundary",
+    "should_trigger": false
+  },
+  {
+    "query": "convert our swagger 2.0 spec up to openapi 3.1",
+    "should_trigger": false
+  },
+  {
+    "query": "can we move the spec from openapi 3.0 to 3.1? what breaks",
+    "should_trigger": false
+  },
+  {
+    "query": "my mutation score is 31% with 94% line coverage on the service package",
+    "should_trigger": false
+  },
+  {
+    "query": "regenerating produces a different tree each run, i think something non-deterministic is in the templates",
+    "should_trigger": false
+  },
+  {
+    "query": "upgrade our node app from node 18 to node 22, there's a bunch of deprecated crypto usage",
+    "should_trigger": false
+  },
+  {
+    "query": "bump postgres from 14 to 16. mostly worried about the jsonb operator changes and our generated columns",
+    "should_trigger": false
+  },
+  {
+    "query": "we need to upgrade from maven 3.6 to 3.9 because of a plugin requirement. anything to watch for",
+    "should_trigger": false
+  },
+  {
+    "query": "our gradle wrapper is on 7.6 and a plugin needs 8.x. is that upgrade risky",
+    "should_trigger": false
+  },
+  {
+    "query": "migrate this service from spring mvc to webflux, it's mostly io bound calls to three downstream apis",
+    "should_trigger": false
+  },
+  {
+    "query": "need to upgrade jackson from 2.15 to 2.18, mostly worried about the ObjectMapper config we've got in JacksonConfig",
+    "should_trigger": true
+  }
+]

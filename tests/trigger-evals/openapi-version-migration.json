@@ -1,0 +1,82 @@
+[
+  {
+    "query": "convert this swagger 2.0 file to openapi 3.1 — it's got body params and a host/basePath block, definitions, the lot",
+    "should_trigger": true
+  },
+  {
+    "query": "openapi-generator just told me 'unsupported spec version 3.2.0'. the spec is at contracts/inventory.yaml and the platform team won't downgrade it",
+    "should_trigger": true
+  },
+  {
+    "query": "can we move to openapi 3.1? we're on 3.0.4 now and someone said 3.1 is just json schema so it should be a no-op",
+    "should_trigger": true
+  },
+  {
+    "query": "i bumped the openapi: field from 3.0.4 to 3.1.2 last sprint and nothing broke, but now a few nullable fields are coming through as non-null in the client sdk",
+    "should_trigger": true
+  },
+  {
+    "query": "this spec declares 3.1.2 but it's full of nullable: true and boolean exclusiveMinimum. what's the actual correct way to modernise it rather than just find-and-replace",
+    "should_trigger": true
+  },
+  {
+    "query": "we've got a 3.2 spec with additionalOperations for a QUERY method. i need it through a java generator. what are my options and what do i lose",
+    "should_trigger": true
+  },
+  {
+    "query": "legacy service, swagger 2.0, formData params everywhere. need it as modern openapi so we can generate a typescript client. where do the formData params go",
+    "should_trigger": true
+  },
+  {
+    "query": "what actually changes between openapi 3.0 and 3.1 that would affect generated code? trying to write the migration ticket properly",
+    "should_trigger": true
+  },
+  {
+    "query": "our vendor sends us a 2.0 file. after i convert it, every error response comes out as application/json and our standard says problem+json. is that a conversion thing or a them thing",
+    "should_trigger": true
+  },
+  {
+    "query": "downgrading a 3.2 spec to 3.1 for tooling reasons — how do i know whether i've actually lost anything that matters vs just cosmetic stuff like tag nesting",
+    "should_trigger": true
+  },
+  {
+    "query": "can you take a look at api/openapi.yaml before i hand it to the backend team? want to know if anything's going to bite us when they generate off it",
+    "should_trigger": false
+  },
+  {
+    "query": "we're on spring boot 3.5.16 and i've been told that's EOL. what's involved in getting to 4.x",
+    "should_trigger": false
+  },
+  {
+    "query": "upgrade this project from java 17 to 21. there's a mockito agent warning in the build already",
+    "should_trigger": false
+  },
+  {
+    "query": "regenerating from an unchanged spec gives a different tree every run. i think it's the timestamp in the file headers but not sure",
+    "should_trigger": false
+  },
+  {
+    "query": "our spec is fine but the generated OrdersApi interface has methods called ordersPost and ordersGet which is horrible to call from the delegate",
+    "should_trigger": false
+  },
+  {
+    "query": "migrate our REST api to graphql. we've got about 40 endpoints described in openapi and i want to know what the schema would look like",
+    "should_trigger": false
+  },
+  {
+    "query": "we're moving from json to protobuf for the internal service calls. is there a tool that takes openapi and gives me .proto",
+    "should_trigger": false
+  },
+  {
+    "query": "our flyway migrations are out of order after a bad merge and V12 ran before V11 on staging. how do i repair that",
+    "should_trigger": false
+  },
+  {
+    "query": "need to upgrade jackson from 2.15 to 2.18, mostly worried about the ObjectMapper config we've got in JacksonConfig",
+    "should_trigger": false
+  },
+  {
+    "query": "convert this postman collection into something we can publish as api docs",
+    "should_trigger": false
+  }
+]

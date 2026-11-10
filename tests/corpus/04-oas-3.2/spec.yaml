@@ -1,0 +1,119 @@
+# OpenAPI 3.2.0 input.
+#
+# 3.2 cannot reach openapi-generator: it parses through swagger-parser, which does not support
+# 3.2 (swagger-api/swagger-parser#2248). This document therefore exercises the downgrade path.
+#
+# It contains `additionalOperations`, which has no 3.1 equivalent, so `o2j normalize` must
+# classify it as a load-bearing loss and exit 4 rather than silently ship an API that lost an
+# endpoint. See tests/unit/test_normalize.py.
+openapi: "3.2.0"
+info:
+  title: Inventory Service
+  version: 1.0.0
+
+$self: https://api.example.com/specs/inventory
+
+tags:
+  - name: inventory
+    description: Stock levels
+  - name: stock-counts
+    # 3.2 nested tag hierarchy: degradable, flattens to a standalone tag.
+    parent: inventory
+
+paths:
+  /inventory-items:
+    get:
+      operationId: listInventoryItems
+      tags: [inventory]
+      security: []
+      parameters:
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/BadRequest"
+
+    # 3.2 only: a non-standard HTTP method. There is no way to express this in 3.1, so the
+    # downgrade must refuse rather than drop it.
+    additionalOperations:
+      QUERY:
+        operationId: queryInventoryItems
+        tags: [inventory]
+        security: []
+        requestBody:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryQuery"
+        responses:
+          "200":
+            description: Matches
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/InventoryItem"
+          "400":
+            $ref: "#/components/responses/BadRequest"
+          "500":
+            $ref: "#/components/responses/BadRequest"
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.example.com/oauth2/token
+          scopes:
+            inventory:read: Read stock
+
+  schemas:
+    InventoryItem:
+      type: object
+      required: [sku, available]
+      properties:
+        sku:
+          type: string
+        available:
+          type: integer
+          exclusiveMinimum: -1
+
+    InventoryQuery:
+      type: object
+      properties:
+        skus:
+          type: array
+          items:
+            type: string
+
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+
+  responses:
+    BadRequest:
+      description: Invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"

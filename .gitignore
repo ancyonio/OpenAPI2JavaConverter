@@ -1,0 +1,41 @@
+# Generated contract layer — build output, never committed (SPECIFICATION.md §6.2)
+target/
+!**/src/main/**/target/
+build/
+
+# o2j working directory — stage artifacts
+work/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Java / Maven
+*.class
+*.jar
+!o2j/vendor/*.jar
+.mvn/wrapper/maven-wrapper.jar
+
+# Tooling state
+.context/
+.tokengraph/
+dependency-check-report.*
+
+# IDE
+.idea/
+*.iml
+.vscode/*
+!.vscode/mcp.json
+
+# OS
+.DS_Store
+Thumbs.db

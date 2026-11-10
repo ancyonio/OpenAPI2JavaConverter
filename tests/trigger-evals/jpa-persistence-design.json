@@ -1,0 +1,82 @@
+[
+  {
+    "query": "GET /orders is issuing 51 queries for 50 orders. the Order entity has a @OneToMany for items and the mapper touches getItems() in a loop",
+    "should_trigger": true
+  },
+  {
+    "query": "getting LazyInitializationException when we map the entity to the response DTO. works in the test, fails over http",
+    "should_trigger": true
+  },
+  {
+    "query": "should our generated DTOs just be the JPA entities? the fields are identical and writing a mapper feels like busywork",
+    "should_trigger": true
+  },
+  {
+    "query": "need to rename a column on a 40 million row table and we deploy rolling, so two versions of the code are live at once",
+    "should_trigger": true
+  },
+  {
+    "query": "two users edited the same order and one of the edits just vanished. no error anywhere in the logs",
+    "should_trigger": true
+  },
+  {
+    "query": "our findAll().subList() pagination is loading the whole table. also someone reported seeing the same order on two pages",
+    "should_trigger": true
+  },
+  {
+    "query": "a migration passed on staging and failed on prod with a checksum error. someone edited V14 after it had already run",
+    "should_trigger": true
+  },
+  {
+    "query": "the app starts fine but the first query fails with a missing column. shouldn't hibernate have caught that at startup",
+    "should_trigger": true
+  },
+  {
+    "query": "review my OrdersApiDelegateImpl — i think the @Transactional might be in the wrong place and i'm not sure the Location header is being set on the 201",
+    "should_trigger": false
+  },
+  {
+    "query": "our repository tests use h2 and we just found a bug in prod that h2 would never have caught — a jsonb operator postgres has and h2 doesn't",
+    "should_trigger": false
+  },
+  {
+    "query": "the postgres query behind GET /orders is doing a seq scan on a 40m row table. here's the explain analyze output",
+    "should_trigger": true
+  },
+  {
+    "query": "our flyway migrations are out of order after a bad merge and V12 ran before V11 on staging. how do i repair that",
+    "should_trigger": true
+  },
+  {
+    "query": "we're moving from mongodb to postgres and need to work out how the nested documents become tables",
+    "should_trigger": false
+  },
+  {
+    "query": "our redis cache keys have no ttl and the instance filled up overnight",
+    "should_trigger": false
+  },
+  {
+    "query": "set up read replicas and route our read-only queries to them",
+    "should_trigger": false
+  },
+  {
+    "query": "sqlalchemy session management in fastapi — should the session be per request or per operation",
+    "should_trigger": false
+  },
+  {
+    "query": "mapping a postgres jsonb column onto a java object with hibernate — do i need a custom type or is there built in support now",
+    "should_trigger": true
+  },
+  {
+    "query": "we're seeing n+1 queries on GET /orders. the Order entity has a @OneToMany for items and i'm touching order.getItems() in a loop in the mapper",
+    "should_trigger": true
+  },
+  {
+    "query": "we're moving the order history to a separate read model in elasticsearch. how do we keep it in sync",
+    "should_trigger": false
+  },
+  {
+    "query": "our connection pool is exhausting under load. hikari max is 20 and we have 40 worker threads",
+    "should_trigger": false
+  }
+]

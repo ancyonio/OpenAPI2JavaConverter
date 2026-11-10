@@ -1,0 +1,262 @@
+{
+  "$defs": {
+    "PlanTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "javaVersion": {
+          "title": "Javaversion",
+          "type": "integer"
+        },
+        "springProfile": {
+          "title": "Springprofile",
+          "type": "string"
+        },
+        "springBootVersion": {
+          "title": "Springbootversion",
+          "type": "string"
+        },
+        "buildTool": {
+          "title": "Buildtool",
+          "type": "string"
+        },
+        "webStack": {
+          "title": "Webstack",
+          "type": "string"
+        },
+        "javaTier": {
+          "title": "Javatier",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "javaVersion",
+        "springProfile",
+        "springBootVersion",
+        "buildTool",
+        "webStack",
+        "javaTier"
+      ],
+      "title": "PlanTarget",
+      "type": "object"
+    },
+    "PlannedOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "operationId": {
+          "title": "Operationid",
+          "type": "string"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "pointer": {
+          "title": "Pointer",
+          "type": "string"
+        },
+        "requestType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requesttype"
+        },
+        "responseType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Responsetype"
+        },
+        "successStatus": {
+          "title": "Successstatus",
+          "type": "integer"
+        },
+        "errorStatuses": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Errorstatuses",
+          "type": "array"
+        },
+        "security": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Security",
+          "type": "array"
+        },
+        "idempotent": {
+          "default": false,
+          "title": "Idempotent",
+          "type": "boolean"
+        },
+        "paginated": {
+          "default": false,
+          "title": "Paginated",
+          "type": "boolean"
+        },
+        "optimisticConcurrency": {
+          "default": false,
+          "title": "Optimisticconcurrency",
+          "type": "boolean"
+        },
+        "enumFields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Enumfields",
+          "type": "array"
+        },
+        "riskFactors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Riskfactors",
+          "type": "array"
+        },
+        "requiredTests": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requiredtests",
+          "type": "array"
+        }
+      },
+      "required": [
+        "operationId",
+        "method",
+        "path",
+        "pointer",
+        "successStatus"
+      ],
+      "title": "PlannedOperation",
+      "type": "object"
+    },
+    "PlannedResource": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "title": "Tag",
+          "type": "string"
+        },
+        "apiInterface": {
+          "title": "Apiinterface",
+          "type": "string"
+        },
+        "delegate": {
+          "title": "Delegate",
+          "type": "string"
+        },
+        "service": {
+          "title": "Service",
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/PlannedOperation"
+          },
+          "title": "Operations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tag",
+        "apiInterface",
+        "delegate",
+        "service"
+      ],
+      "title": "PlannedResource",
+      "type": "object"
+    },
+    "RiskScore": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "title": "Value",
+          "type": "integer"
+        },
+        "band": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "title": "Band",
+          "type": "string"
+        },
+        "drivers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Drivers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value",
+        "band"
+      ],
+      "title": "RiskScore",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "specHash": {
+      "title": "Spechash",
+      "type": "string"
+    },
+    "specVersion": {
+      "title": "Specversion",
+      "type": "string"
+    },
+    "originalVersion": {
+      "title": "Originalversion",
+      "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/PlanTarget"
+    },
+    "basePackage": {
+      "title": "Basepackage",
+      "type": "string"
+    },
+    "resources": {
+      "items": {
+        "$ref": "#/$defs/PlannedResource"
+      },
+      "title": "Resources",
+      "type": "array"
+    },
+    "riskScore": {
+      "$ref": "#/$defs/RiskScore"
+    }
+  },
+  "required": [
+    "specHash",
+    "specVersion",
+    "originalVersion",
+    "target",
+    "basePackage",
+    "riskScore"
+  ],
+  "title": "GenerationPlan",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://o2j.dev/schemas/generation-plan.schema.json"
+}

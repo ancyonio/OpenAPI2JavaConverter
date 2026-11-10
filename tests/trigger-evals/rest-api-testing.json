@@ -1,0 +1,78 @@
+[
+  {
+    "query": "we need a test that proves our responses actually match the schemas in the spec. they've drifted twice now and a consumer found it both times",
+    "should_trigger": true
+  },
+  {
+    "query": "how do i test what happens when the payment gateway goes slow rather than down? the sandbox won't give me a timeout on demand",
+    "should_trigger": true
+  },
+  {
+    "query": "our repository tests use h2 and we just found a bug in prod that h2 would never have caught — a jsonb operator postgres has and h2 doesn't",
+    "should_trigger": true
+  },
+  {
+    "query": "the integration suite fails about one run in six and it's always a different test. i'm fairly sure it's leftover data",
+    "should_trigger": true
+  },
+  {
+    "query": "writing the end to end test for the order cancellation journey. needs a real database and the inventory service stubbed",
+    "should_trigger": true
+  },
+  {
+    "query": "four internal teams consume our api and we broke two of them last release. is there a way to find out at build time",
+    "should_trigger": true
+  },
+  {
+    "query": "our @SpringBootTest suite takes nine minutes and most of that looks like spring context startup",
+    "should_trigger": true
+  },
+  {
+    "query": "i want a test that our pagination doesn't return the same order on page 1 and page 2. it happened on staging",
+    "should_trigger": true
+  },
+  {
+    "query": "my OrderServiceTest has 94% line coverage but PIT reports a 31% mutation score. what am i actually missing",
+    "should_trigger": false
+  },
+  {
+    "query": "mockito keeps shouting UnnecessaryStubbingException at me on about a dozen tests. is it safe to just add lenient() everywhere",
+    "should_trigger": false
+  },
+  {
+    "query": "what cases do i actually need for POST /orders? it has a request body, an idempotency key header, requires a scope, returns 201 and can 409",
+    "should_trigger": false
+  },
+  {
+    "query": "jacoco is failing the build at 81% and i need 85%. quickest way to get there on the service package",
+    "should_trigger": false
+  },
+  {
+    "query": "our cypress suite is flaky on the login step, i think it's a race with the redirect",
+    "should_trigger": false
+  },
+  {
+    "query": "write a k6 script to load test the orders endpoint at 2000 rps for ten minutes",
+    "should_trigger": false
+  },
+  {
+    "query": "set up pytest fixtures for this python project, we need a shared database fixture across three test modules",
+    "should_trigger": false
+  },
+  {
+    "query": "our github actions runner keeps running out of disk during the docker build step",
+    "should_trigger": false
+  },
+  {
+    "query": "should i use h2 for the repository tests? it's much faster than spinning up testcontainers in CI",
+    "should_trigger": true
+  },
+  {
+    "query": "write the integration test for the order cancellation flow, needs a real postgres not h2",
+    "should_trigger": true
+  },
+  {
+    "query": "our contract tests against the vendor's sandbox keep failing because they reset the sandbox data nightly",
+    "should_trigger": true
+  }
+]

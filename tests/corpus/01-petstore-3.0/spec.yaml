@@ -1,0 +1,131 @@
+# Canonical OpenAPI 3.0.4 baseline. Uses the 3.0 forms deliberately: `nullable: true` and a
+# boolean `exclusiveMinimum`, which are correct here and must NOT be reported.
+openapi: "3.0.4"
+info:
+  title: Pet Service
+  version: 1.0.0
+
+servers:
+  - url: https://api.example.com/v1
+
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      tags: [pets]
+      security: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pet"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/BadRequest"
+
+    post:
+      operationId: createPet
+      tags: [pets]
+      security:
+        - oauth2: [pets:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePetRequest"
+      responses:
+        "201":
+          description: Created
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/BadRequest"
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.example.com/oauth2/token
+          scopes:
+            pets:write: Create pets
+
+  schemas:
+    PetKind:
+      type: string
+      enum: [CAT, DOG, FISH]
+
+    CreatePetRequest:
+      type: object
+      required: [name, kind]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        kind:
+          $ref: "#/components/schemas/PetKind"
+        weightKg:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true   # correct 3.0 form
+
+    Pet:
+      type: object
+      required: [id, name, kind]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        kind:
+          $ref: "#/components/schemas/PetKind"
+        adoptedAt:
+          type: string
+          format: date-time
+          nullable: true           # correct 3.0 form
+
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+
+  responses:
+    BadRequest:
+      description: Invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"

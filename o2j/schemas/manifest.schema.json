@@ -1,0 +1,61 @@
+{
+  "additionalProperties": false,
+  "description": "``o2j.lock.json`` - the audit record for one generation run.\n\n``generated_at`` is excluded from the content hash on purpose: including it would make\nthe determinism check fail on its own timestamp.",
+  "properties": {
+    "schemaVersion": {
+      "default": 1,
+      "title": "Schemaversion",
+      "type": "integer"
+    },
+    "generatedAt": {
+      "title": "Generatedat",
+      "type": "string"
+    },
+    "spec": {
+      "additionalProperties": true,
+      "title": "Spec",
+      "type": "object"
+    },
+    "target": {
+      "additionalProperties": true,
+      "title": "Target",
+      "type": "object"
+    },
+    "tools": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Tools",
+      "type": "object"
+    },
+    "operations": {
+      "default": 0,
+      "title": "Operations",
+      "type": "integer"
+    },
+    "generatedFiles": {
+      "default": 0,
+      "title": "Generatedfiles",
+      "type": "integer"
+    },
+    "handWrittenFiles": {
+      "default": 0,
+      "title": "Handwrittenfiles",
+      "type": "integer"
+    },
+    "quality": {
+      "additionalProperties": true,
+      "title": "Quality",
+      "type": "object"
+    },
+    "determinism": {
+      "additionalProperties": true,
+      "title": "Determinism",
+      "type": "object"
+    }
+  },
+  "title": "Manifest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://o2j.dev/schemas/manifest.schema.json"
+}

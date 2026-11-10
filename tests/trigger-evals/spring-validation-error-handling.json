@@ -1,0 +1,70 @@
+[
+  {
+    "query": "the @Size on a nested OrderItem isn't firing. the outer request validates fine but an item with a blank sku goes straight through to the service",
+    "should_trigger": true
+  },
+  {
+    "query": "our 400 responses just say Bad Request with no body. the frontend team wants to highlight which field was wrong",
+    "should_trigger": true
+  },
+  {
+    "query": "i need a rule that `to` must be after `from` across two fields of the same record. bean validation seems to be per-field only",
+    "should_trigger": true
+  },
+  {
+    "query": "the same CustomerDto is used for create and update — id must be absent on create and present on update. groups? two types? something else?",
+    "should_trigger": true
+  },
+  {
+    "query": "put @NotBlank on a @Service method parameter and it does nothing. the controller ones work fine",
+    "should_trigger": true
+  },
+  {
+    "query": "a @Pattern on our sku field is matching things it shouldn't — SKU-0001-JUNK passes and it should not",
+    "should_trigger": true
+  },
+  {
+    "query": "our ConstraintViolationException from a query param comes back as a 500 instead of a 400. the request body validation is fine",
+    "should_trigger": true
+  },
+  {
+    "query": "should 'this email is already registered' be a 400 from bean validation or something else? it needs a database lookup",
+    "should_trigger": true
+  },
+  {
+    "query": "review my OrdersApiDelegateImpl — i think the @Transactional might be in the wrong place and i'm not sure the Location header is being set on the 201",
+    "should_trigger": false
+  },
+  {
+    "query": "a customer got a 500 with a stack trace and a bit of SQL in the response body. where do i fix that properly rather than just catching Exception in the controller",
+    "should_trigger": false
+  },
+  {
+    "query": "our spec declares orders:write on the POST but i'm not sure the @PreAuthorize is actually doing anything. a token with only orders:read seems to get through",
+    "should_trigger": false
+  },
+  {
+    "query": "our spec has quantity with minimum 0 and exclusiveMinimum true, and someone just managed to submit an order with quantity 0 through the api. the validation annotation is missing on the dto",
+    "should_trigger": false
+  },
+  {
+    "query": "zod schema on our next.js route handler isn't catching an empty string on a required field",
+    "should_trigger": false
+  },
+  {
+    "query": "our database check constraint rejects the row but the error surfaces as a generic 500 from the jdbc layer",
+    "should_trigger": true
+  },
+  {
+    "query": "pydantic v2 validators — how do i do a model-level check that two fields are consistent",
+    "should_trigger": false
+  },
+  {
+    "query": "the json schema we publish for our config file should reject unknown top-level keys. it currently allows anything",
+    "should_trigger": false
+  },
+  {
+    "query": "the mobile client sends dates as unix epoch millis and our DTO expects ISO-8601. where should that conversion live",
+    "should_trigger": false
+  }
+]

@@ -1,0 +1,111 @@
+name: O2J Convert
+
+# Each pipeline stage is its own step, so a failure names the stage rather than burying it in
+# one long log. Exit codes are in SPECIFICATION.md section 8.4.
+
+on:
+  workflow_dispatch:
+    inputs:
+      spec_path:
+        description: Path to the OpenAPI spec
+        required: true
+        default: openapi/spec.raw.yaml
+      java_version:
+        description: Target Java version (17, 21, 25)
+        required: false
+        default: "21"
+  pull_request:
+    paths:
+      - "openapi/**"
+      - "o2j.yaml"
+      - "o2j/**"
+
+permissions:
+  contents: read
+  security-events: write   # SARIF upload
+
+concurrency:
+  group: o2j-convert-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    env:
+      # Pinned so formatting and sort order cannot vary by runner locale, which would break
+      # the determinism gate for no real reason.
+      LC_ALL: C
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version || '21' }}
+          cache: maven
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install o2j
+        run: pip install -e .
+
+      - name: Preflight
+        run: python -I -m o2j doctor
+
+      - name: S0 Ingest
+        run: python -I -m o2j ingest "${{ inputs.spec_path || 'openapi/spec.raw.yaml' }}"
+
+      - name: S1 Validate
+        run: python -I -m o2j validate --json > validation-report.json
+
+      - name: Upload validation findings
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: work/01-validate/validation-report.sarif
+          category: o2j-openapi
+
+      - name: S2 Normalize
+        run: python -I -m o2j normalize
+
+      - name: S3 Plan
+        run: python -I -m o2j plan
+
+      - name: S4 Generate
+        run: python -I -m o2j generate
+
+      - name: S4 Verify determinism
+        run: python -I -m o2j verify --mode determinism
+
+      - name: S6 Build and test
+        run: mvn -B -ntp verify
+
+      - name: S7 Coverage and mutation gates
+        run: python -I -m o2j coverage --no-run-build
+
+      - name: S7 Quality gates
+        run: python -I -m o2j quality
+
+      - name: S7 Contract conformance
+        run: python -I -m o2j verify --mode contract
+
+      - name: S8 Report
+        if: always()
+        run: python -I -m o2j report
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: o2j-artifacts-java${{ inputs.java_version || '21' }}
+          path: |
+            work/**/*.json
+            work/**/*.md
+            work/**/*.yaml
+            target/site/jacoco/**
+            target/pit-reports/**
+          if-no-files-found: warn

@@ -1,0 +1,128 @@
+package {{base_package}}.architecture;
+
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsideOfPackage;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
+import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
+
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchRule;
+import java.time.Instant;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+/**
+ * The rules that make regeneration safe and the service testable.
+ *
+ * <p>These are not style preferences. Each one prevents a specific failure that review
+ * reliably misses, and each is cheap to satisfy and expensive to retrofit.
+ *
+ * <p>Layers are optional and rules about annotations allow an empty match, because a freshly
+ * scaffolded service has no repository, no domain package and no {@code @Transactional} yet.
+ * ArchUnit otherwise fails a rule that checks nothing, so the scaffold would fail its own build.
+ */
+@AnalyzeClasses(
+    packages = "{{base_package}}",
+    importOptions = ImportOption.DoNotIncludeTests.class)
+class ArchitectureTest {
+
+  @ArchTest
+  static final ArchRule layering =
+      layeredArchitecture()
+          .consideringOnlyDependenciesInLayers()
+          .withOptionalLayers(true)
+          // Generated DTOs are their own layer: mappers must read them, but nothing may call
+          // into the controllers and delegates.
+          .layer("Api")
+          .definedBy(resideInAPackage("..api..").and(resideOutsideOfPackage("..api.model..")))
+          .layer("Contract").definedBy("..api.model..")
+          .layer("Mapper").definedBy("..mapper..")
+          .layer("Service").definedBy("..service..")
+          .layer("Repository").definedBy("..repository..")
+          .layer("Domain").definedBy("..domain..")
+          .whereLayer("Api").mayNotBeAccessedByAnyLayer()
+          .whereLayer("Contract").mayOnlyBeAccessedByLayers("Api", "Mapper")
+          .whereLayer("Mapper").mayOnlyBeAccessedByLayers("Api")
+          .whereLayer("Service").mayOnlyBeAccessedByLayers("Api")
+          .whereLayer("Repository").mayOnlyBeAccessedByLayers("Service");
+
+  /**
+   * The rule the whole design depends on. If generated DTOs reach the service layer, a renamed
+   * field in the spec ripples through business logic and every test, and regenerating stops
+   * being safe. Confined to api and mapper, the blast radius of a spec change is two packages.
+   */
+  @ArchTest
+  static final ArchRule generated_dtos_do_not_escape_the_api_layer =
+      noClasses()
+          .that()
+          .resideOutsideOfPackages("..api..", "..mapper..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("..api.model..")
+          .because("a spec change must not ripple into business logic or tests");
+
+  @ArchTest
+  static final ArchRule no_field_injection =
+      noFields()
+          .should()
+          .beAnnotatedWith(Autowired.class)
+          .because("constructor injection keeps dependencies explicit and classes testable");
+
+  @ArchTest
+  static final ArchRule transactional_only_on_services =
+      methods()
+          .that()
+          .areAnnotatedWith(Transactional.class)
+          .should()
+          .beDeclaredInClassesThat()
+          .resideInAPackage("..service..")
+          .because("the transaction boundary belongs to the service layer")
+          .allowEmptyShould(true);
+
+  /**
+   * A non-public {@code @Transactional} method is silently non-transactional, because Spring's
+   * proxy cannot intercept it. The code looks correct and the transaction never starts.
+   */
+  @ArchTest
+  static final ArchRule transactional_methods_must_be_public =
+      methods()
+          .that()
+          .areAnnotatedWith(Transactional.class)
+          .should()
+          .bePublic()
+          .because("Spring's proxy cannot apply @Transactional to a non-public method")
+          .allowEmptyShould(true);
+
+  @ArchTest
+  static final ArchRule no_direct_system_clock =
+      noClasses()
+          .that()
+          .resideOutsideOfPackages("..config..")
+          .should()
+          .callMethod(Instant.class, "now")
+          .because("inject Clock so time-dependent behaviour can be tested at a fixed instant");
+
+  @ArchTest
+  static final ArchRule no_inline_random_identity =
+      noClasses()
+          .that()
+          .resideInAPackage("..service..")
+          .should()
+          .callMethod(UUID.class, "randomUUID")
+          .because("inject an id supplier so generated identifiers are deterministic in tests")
+          .allowEmptyShould(true);
+
+  @ArchTest
+  static final ArchRule no_response_status_exception =
+      noClasses()
+          .should()
+          .dependOnClassesThat()
+          .areAssignableTo(ResponseStatusException.class)
+          .because("throw domain exceptions and map them in @RestControllerAdvice");
+}

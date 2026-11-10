@@ -1,0 +1,70 @@
+[
+  {
+    "query": "build is failing on checkstyle with about 200 violations after someone added a new ruleset. can we just turn the rule off, we're trying to ship today",
+    "should_trigger": true
+  },
+  {
+    "query": "spotbugs is flagging EI_EXPOSE_REP on a record that returns a List field. it's wrapped in List.copyOf in the constructor so i think it's a false positive",
+    "should_trigger": true
+  },
+  {
+    "query": "setting up a new java service and i want the static analysis right from the start. spotless, checkstyle, pmd, spotbugs, what config do i actually need",
+    "should_trigger": true
+  },
+  {
+    "query": "owasp dependency-check went red overnight on a commit that only touched a readme. CVSS 7.5 in a transitive jackson dep",
+    "should_trigger": true
+  },
+  {
+    "query": "our sonar quality gate has been failing for three weeks and everyone just clicks through it now. how do we make it mean something again",
+    "should_trigger": true
+  },
+  {
+    "query": "pmd is reporting 800 findings on a legacy module we've just taken over. we can't fix those before the next release",
+    "should_trigger": true
+  },
+  {
+    "query": "gitleaks found an aws key in a commit from eight months ago. we removed the line in a follow-up commit, is that enough",
+    "should_trigger": true
+  },
+  {
+    "query": "dependency-check takes 11 minutes on every PR build and people have started pushing with --no-verify. what's the right way to run it",
+    "should_trigger": true
+  },
+  {
+    "query": "my OrderServiceTest has 94% line coverage but PIT reports a 31% mutation score. what am i actually missing",
+    "should_trigger": false
+  },
+  {
+    "query": "review my OrdersApiDelegateImpl — i think the @Transactional might be in the wrong place and i'm not sure the Location header is being set on the 201",
+    "should_trigger": false
+  },
+  {
+    "query": "upgrade this project from java 17 to 21. there's already a mockito bytebuddy warning in the build output",
+    "should_trigger": false
+  },
+  {
+    "query": "can you take a look at api/openapi.yaml before i hand it to the backend team? they're going to generate the server off it and i want to know if anything's going to bite us",
+    "should_trigger": false
+  },
+  {
+    "query": "our eslint config is fighting with prettier on the frontend and the pre-commit hook rewrites files twice",
+    "should_trigger": false
+  },
+  {
+    "query": "ruff and mypy disagree about an unused import in a python package that only exists for re-exports",
+    "should_trigger": false
+  },
+  {
+    "query": "the maven build takes 14 minutes and most of it is the shade plugin. can we speed that up",
+    "should_trigger": false
+  },
+  {
+    "query": "our terraform plan fails tflint on a module we vendored from upstream and can't modify",
+    "should_trigger": false
+  },
+  {
+    "query": "our sonarqube quality gate is failing on duplicated code in the test sources, about 400 lines flagged across the slice tests",
+    "should_trigger": true
+  }
+]

@@ -1,0 +1,82 @@
+[
+  {
+    "query": "review my OrdersApiDelegateImpl — i think the @Transactional might be in the wrong place and i'm not sure the Location header is being set on the 201",
+    "should_trigger": true
+  },
+  {
+    "query": "we had an incident where a save didn't roll back. the method is annotated @Transactional and it's called from another method in the same class",
+    "should_trigger": true
+  },
+  {
+    "query": "implement the createOrder endpoint against the generated OrdersApiDelegate. it needs to call the payment client then persist, and return 201",
+    "should_trigger": true
+  },
+  {
+    "query": "a customer got a 500 with a stack trace and a bit of SQL in the response body. where do i fix that properly rather than just catching Exception in the controller",
+    "should_trigger": true
+  },
+  {
+    "query": "OrderService calls Instant.now() in three places and i can't write a sensible assertion on createdAt. is there a pattern for this",
+    "should_trigger": true
+  },
+  {
+    "query": "our error responses are inconsistent — some return {message}, some return {error, code}, the framework ones return something else again. want one shape across the whole api",
+    "should_trigger": true
+  },
+  {
+    "query": "code review on this PR please: new CustomerService plus repository, first spring boot service this dev has written",
+    "should_trigger": true
+  },
+  {
+    "query": "the payment gateway went slow last night and our whole thread pool filled up and the service stopped responding to health checks",
+    "should_trigger": false
+  },
+  {
+    "query": "is it ok for my service method to take the generated CreateOrderRequest DTO directly? it saves writing a mapper and the fields are identical",
+    "should_trigger": true
+  },
+  {
+    "query": "we're seeing n+1 queries on GET /orders. the Order entity has a @OneToMany for items and i'm touching order.getItems() in a loop in the mapper",
+    "should_trigger": false
+  },
+  {
+    "query": "my OrderServiceTest has 94% line coverage but PIT reports a 31% mutation score. what am i actually missing",
+    "should_trigger": false
+  },
+  {
+    "query": "upgrade this service from java 17 to 21 and tell me whether we should turn on virtual threads at the same time",
+    "should_trigger": false
+  },
+  {
+    "query": "review api/openapi.yaml — is the contract sound before the backend generates from it",
+    "should_trigger": false
+  },
+  {
+    "query": "convert our swagger 2.0 file to openapi 3.1",
+    "should_trigger": false
+  },
+  {
+    "query": "regenerating from an unchanged spec produces a different tree every time and i can't tell real changes from noise",
+    "should_trigger": false
+  },
+  {
+    "query": "write the integration test for the order cancellation flow, needs a real postgres not h2",
+    "should_trigger": false
+  },
+  {
+    "query": "our quarkus service has a similar layering question — should the resource class call the repository directly or go through a service",
+    "should_trigger": false
+  },
+  {
+    "query": "this is a spring batch job not a web service. the chunk size is 1000 and it OOMs on the writer step",
+    "should_trigger": false
+  },
+  {
+    "query": "kotlin coroutines question — should i use suspend functions in my service layer or stick with blocking calls",
+    "should_trigger": false
+  },
+  {
+    "query": "our kubernetes readiness probe is failing during startup because the liveness probe kills the pod before flyway finishes",
+    "should_trigger": false
+  }
+]

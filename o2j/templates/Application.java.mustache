@@ -1,0 +1,25 @@
+package {{base_package}};
+
+import java.time.Clock;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+
+/** Entry point for {{service_name}}. Generated once by o2j; safe to edit. */
+@SpringBootApplication
+public class Application {
+
+  public static void main(String[] args) {
+    SpringApplication.run(Application.class, args);
+  }
+
+  /**
+   * Injected everywhere time is read, so service behaviour can be tested at a fixed instant.
+   * Calling {@code Instant.now()} inline is what makes a method untestable, so it is banned by
+   * an ArchUnit rule rather than left to review.
+   */
+  @Bean
+  Clock clock() {
+    return Clock.systemUTC();
+  }
+}

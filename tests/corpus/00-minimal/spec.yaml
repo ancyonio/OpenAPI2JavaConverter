@@ -1,0 +1,66 @@
+# Smallest document that should pass every gate. If this fixture fails, the problem is o2j.
+openapi: "3.1.2"
+info:
+  title: Ping Service
+  version: 1.0.0
+
+paths:
+  /pings:
+    get:
+      operationId: listPings
+      tags: [pings]
+      security: []          # deliberately public
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Pings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ping"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/BadRequest"
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.example.com/oauth2/token
+          scopes:
+            pings:read: Read pings
+
+  schemas:
+    Ping:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+
+  responses:
+    BadRequest:
+      description: Invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"

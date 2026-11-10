@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "o2j": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-I", "-m", "o2j.mcp_server"],
+      "env": {
+        "O2J_CONFIG": "${workspaceFolder}/o2j.yaml",
+        "O2J_WORK_DIR": "${workspaceFolder}/work"
+      }
+    }
+  }
+}

@@ -1,0 +1,536 @@
+{
+  "$defs": {
+    "CoverageConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "line_min": {
+          "default": 85,
+          "title": "Line Min",
+          "type": "integer"
+        },
+        "branch_min": {
+          "default": 80,
+          "title": "Branch Min",
+          "type": "integer"
+        },
+        "service_layer_line_min": {
+          "default": 90,
+          "title": "Service Layer Line Min",
+          "type": "integer"
+        },
+        "exclude": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Exclude",
+          "type": "array"
+        }
+      },
+      "title": "CoverageConfig",
+      "type": "object"
+    },
+    "GenerationConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "delegate_pattern": {
+          "default": true,
+          "title": "Delegate Pattern",
+          "type": "boolean"
+        },
+        "interface_only": {
+          "default": false,
+          "title": "Interface Only",
+          "type": "boolean"
+        },
+        "use_tags": {
+          "default": true,
+          "title": "Use Tags",
+          "type": "boolean"
+        },
+        "use_optional": {
+          "default": false,
+          "title": "Use Optional",
+          "type": "boolean"
+        },
+        "use_bean_validation": {
+          "default": true,
+          "title": "Use Bean Validation",
+          "type": "boolean"
+        },
+        "perform_bean_validation": {
+          "default": true,
+          "title": "Perform Bean Validation",
+          "type": "boolean"
+        },
+        "open_api_nullable": {
+          "default": false,
+          "title": "Open Api Nullable",
+          "type": "boolean"
+        },
+        "hide_generation_timestamp": {
+          "default": true,
+          "title": "Hide Generation Timestamp",
+          "type": "boolean"
+        },
+        "serializable_model": {
+          "default": true,
+          "title": "Serializable Model",
+          "type": "boolean"
+        },
+        "unhandled_exception": {
+          "default": true,
+          "title": "Unhandled Exception",
+          "type": "boolean"
+        },
+        "documentation_provider": {
+          "default": "springdoc",
+          "enum": [
+            "springdoc",
+            "none",
+            "source"
+          ],
+          "title": "Documentation Provider",
+          "type": "string"
+        },
+        "annotation_library": {
+          "default": "swagger2",
+          "enum": [
+            "swagger2",
+            "none",
+            "swagger1"
+          ],
+          "title": "Annotation Library",
+          "type": "string"
+        },
+        "template_overrides": {
+          "default": "o2j/templates",
+          "title": "Template Overrides",
+          "type": "string"
+        },
+        "output_dir": {
+          "default": "target/generated-sources/openapi",
+          "title": "Output Dir",
+          "type": "string"
+        }
+      },
+      "title": "GenerationConfig",
+      "type": "object"
+    },
+    "MutationConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "threshold": {
+          "default": 70,
+          "title": "Threshold",
+          "type": "integer"
+        },
+        "coverage_threshold": {
+          "default": 85,
+          "title": "Coverage Threshold",
+          "type": "integer"
+        },
+        "target_packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Target Packages",
+          "type": "array"
+        }
+      },
+      "title": "MutationConfig",
+      "type": "object"
+    },
+    "OpenApiConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "default": "openapi/spec.raw.yaml",
+          "title": "Input",
+          "type": "string"
+        },
+        "canonical_version": {
+          "default": "3.1.2",
+          "title": "Canonical Version",
+          "type": "string"
+        },
+        "allow_remote_refs": {
+          "default": false,
+          "title": "Allow Remote Refs",
+          "type": "boolean"
+        },
+        "remote_ref_allowlist": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Remote Ref Allowlist",
+          "type": "array"
+        },
+        "max_inline_schemas": {
+          "default": 0,
+          "title": "Max Inline Schemas",
+          "type": "integer"
+        },
+        "max_allof_depth": {
+          "default": 3,
+          "title": "Max Allof Depth",
+          "type": "integer"
+        },
+        "max_document_bytes": {
+          "default": 10485760,
+          "title": "Max Document Bytes",
+          "type": "integer"
+        }
+      },
+      "title": "OpenApiConfig",
+      "type": "object"
+    },
+    "QualityConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage": {
+          "$ref": "#/$defs/CoverageConfig"
+        },
+        "mutation": {
+          "$ref": "#/$defs/MutationConfig"
+        },
+        "static_analysis": {
+          "$ref": "#/$defs/StaticAnalysisConfig"
+        },
+        "sonar": {
+          "$ref": "#/$defs/SonarConfig"
+        }
+      },
+      "title": "QualityConfig",
+      "type": "object"
+    },
+    "ServiceConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "group_id": {
+          "title": "Group Id",
+          "type": "string"
+        },
+        "artifact_id": {
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "base_package": {
+          "title": "Base Package",
+          "type": "string"
+        },
+        "profile": {
+          "default": "production",
+          "enum": [
+            "production",
+            "sandbox"
+          ],
+          "title": "Profile",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "group_id",
+        "artifact_id",
+        "base_package"
+      ],
+      "title": "ServiceConfig",
+      "type": "object"
+    },
+    "SonarConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "project_key": {
+          "default": "",
+          "title": "Project Key",
+          "type": "string"
+        }
+      },
+      "title": "SonarConfig",
+      "type": "object"
+    },
+    "StaticAnalysisConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "spotless": {
+          "default": true,
+          "title": "Spotless",
+          "type": "boolean"
+        },
+        "checkstyle": {
+          "default": true,
+          "title": "Checkstyle",
+          "type": "boolean"
+        },
+        "pmd": {
+          "default": true,
+          "title": "Pmd",
+          "type": "boolean"
+        },
+        "spotbugs": {
+          "default": true,
+          "title": "Spotbugs",
+          "type": "boolean"
+        },
+        "archunit": {
+          "default": true,
+          "title": "Archunit",
+          "type": "boolean"
+        },
+        "owasp_dependency_check": {
+          "default": true,
+          "title": "Owasp Dependency Check",
+          "type": "boolean"
+        },
+        "gitleaks": {
+          "default": true,
+          "title": "Gitleaks",
+          "type": "boolean"
+        }
+      },
+      "title": "StaticAnalysisConfig",
+      "type": "object"
+    },
+    "TargetConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "java_version": {
+          "default": 21,
+          "title": "Java Version",
+          "type": "integer"
+        },
+        "spring_profile": {
+          "default": "spring-boot-3",
+          "enum": [
+            "spring-boot-3",
+            "spring-boot-4"
+          ],
+          "title": "Spring Profile",
+          "type": "string"
+        },
+        "build_tool": {
+          "default": "maven",
+          "enum": [
+            "maven",
+            "gradle"
+          ],
+          "title": "Build Tool",
+          "type": "string"
+        },
+        "web_stack": {
+          "default": "mvc",
+          "enum": [
+            "mvc",
+            "webflux"
+          ],
+          "title": "Web Stack",
+          "type": "string"
+        }
+      },
+      "title": "TargetConfig",
+      "type": "object"
+    },
+    "ValidationConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "spectral_ruleset": {
+          "default": "o2j/rules/spectral/house-api.yaml",
+          "title": "Spectral Ruleset",
+          "type": "string"
+        },
+        "fail_on": {
+          "default": "error",
+          "enum": [
+            "error",
+            "warn"
+          ],
+          "title": "Fail On",
+          "type": "string"
+        },
+        "breaking_change_baseline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Breaking Change Baseline"
+        },
+        "require_security": {
+          "default": true,
+          "title": "Require Security",
+          "type": "boolean"
+        },
+        "require_pagination_on_collections": {
+          "default": true,
+          "title": "Require Pagination On Collections",
+          "type": "boolean"
+        },
+        "require_problem_details": {
+          "default": true,
+          "title": "Require Problem Details",
+          "type": "boolean"
+        }
+      },
+      "title": "ValidationConfig",
+      "type": "object"
+    },
+    "VersionsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "openapi_generator": {
+          "title": "Openapi Generator",
+          "type": "string"
+        },
+        "spring_boot": {
+          "title": "Spring Boot",
+          "type": "string"
+        },
+        "spring_boot_4": {
+          "title": "Spring Boot 4",
+          "type": "string"
+        },
+        "mapstruct": {
+          "title": "Mapstruct",
+          "type": "string"
+        },
+        "jacoco": {
+          "title": "Jacoco",
+          "type": "string"
+        },
+        "pitest": {
+          "title": "Pitest",
+          "type": "string"
+        },
+        "pitest_junit5": {
+          "title": "Pitest Junit5",
+          "type": "string"
+        },
+        "spotless": {
+          "title": "Spotless",
+          "type": "string"
+        },
+        "checkstyle": {
+          "title": "Checkstyle",
+          "type": "string"
+        },
+        "pmd": {
+          "title": "Pmd",
+          "type": "string"
+        },
+        "spotbugs": {
+          "title": "Spotbugs",
+          "type": "string"
+        },
+        "archunit": {
+          "title": "Archunit",
+          "type": "string"
+        },
+        "testcontainers": {
+          "title": "Testcontainers",
+          "type": "string"
+        },
+        "springdoc": {
+          "title": "Springdoc",
+          "type": "string"
+        },
+        "owasp_dependency_check": {
+          "title": "Owasp Dependency Check",
+          "type": "string"
+        },
+        "cyclonedx": {
+          "title": "Cyclonedx",
+          "type": "string"
+        }
+      },
+      "required": [
+        "openapi_generator",
+        "spring_boot",
+        "spring_boot_4",
+        "mapstruct",
+        "jacoco",
+        "pitest",
+        "pitest_junit5",
+        "spotless",
+        "checkstyle",
+        "pmd",
+        "spotbugs",
+        "archunit",
+        "testcontainers",
+        "springdoc",
+        "owasp_dependency_check",
+        "cyclonedx"
+      ],
+      "title": "VersionsConfig",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The whole of ``o2j.yaml``.",
+  "properties": {
+    "version": {
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "service": {
+      "$ref": "#/$defs/ServiceConfig"
+    },
+    "target": {
+      "$ref": "#/$defs/TargetConfig"
+    },
+    "versions": {
+      "$ref": "#/$defs/VersionsConfig"
+    },
+    "openapi": {
+      "$ref": "#/$defs/OpenApiConfig"
+    },
+    "validation": {
+      "$ref": "#/$defs/ValidationConfig"
+    },
+    "generation": {
+      "$ref": "#/$defs/GenerationConfig"
+    },
+    "quality": {
+      "$ref": "#/$defs/QualityConfig"
+    },
+    "source_path": {
+      "anyOf": [
+        {
+          "format": "path",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Path"
+    }
+  },
+  "required": [
+    "service",
+    "versions"
+  ],
+  "title": "O2JConfig",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://o2j.dev/schemas/o2j-config.schema.json"
+}

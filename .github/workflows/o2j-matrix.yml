@@ -1,0 +1,78 @@
+name: O2J Compatibility Matrix
+
+# The conformance set from SPECIFICATION.md section 4.4, run against the golden corpus.
+# Tier 1 (LTS Java) is blocking. Tier 2 (non-LTS: 23, 26, 27) is reported but never blocks a
+# release - those JDKs receive no security updates and exist here for compatibility signal only.
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    env:
+      LC_ALL: C
+      TZ: UTC
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Tier 1 - blocking
+          - { id: C1, spec: 01-petstore-3.0, java: "17", tier: 1 }
+          - { id: C2, spec: 02-petstore-3.1, java: "21", tier: 1 }
+          - { id: C3, spec: 02-petstore-3.1, java: "25", tier: 1 }
+          - { id: C4, spec: 03-swagger-2.0, java: "21", tier: 1 }
+          - { id: C5, spec: 04-oas-3.2, java: "21", tier: 1, expect_exit: 4 }
+          - { id: C5b, spec: 05-pathological, java: "21", tier: 1, expect_exit: 3 }
+          - { id: C0, spec: 00-minimal, java: "21", tier: 1 }
+          # Tier 2 - non-blocking
+          - { id: C6a, spec: 02-petstore-3.1, java: "23", tier: 2 }
+          - { id: C6b, spec: 02-petstore-3.1, java: "26", tier: 2 }
+          - { id: C6c, spec: 02-petstore-3.1, java: "27", tier: 2 }
+    continue-on-error: ${{ matrix.tier == 2 }}
+    name: ${{ matrix.id }} ${{ matrix.spec }} / Java ${{ matrix.java }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -e ".[dev]"
+
+      - name: Run the factory's own test suite
+        run: python -I -m pytest -q
+
+      - name: Pipeline on ${{ matrix.spec }}
+        # Tier 2 is non-LTS, so the service profile must be sandbox or validation refuses it.
+        run: |
+          python - <<'PY'
+          import os, pathlib, re
+          cfg = pathlib.Path("o2j.yaml")
+          text = cfg.read_text(encoding="utf-8")
+          text = re.sub(r"java_version: \d+", f"java_version: {os.environ['JAVA_TARGET']}", text)
+          text = re.sub(r"profile: \w+", f"profile: {os.environ['PROFILE']}", text)
+          cfg.write_text(text, encoding="utf-8")
+          PY
+          set +e
+          python -I -m o2j run "tests/corpus/${{ matrix.spec }}/spec.yaml" \
+            --to generate --no-run-generator
+          actual=$?
+          set -e
+          echo "exit=$actual expected=$EXPECT"
+          test "$actual" -eq "$EXPECT"
+        env:
+          JAVA_TARGET: ${{ matrix.java }}
+          EXPECT: ${{ matrix.expect_exit || 0 }}
+          PROFILE: ${{ matrix.tier == 2 && 'sandbox' || 'production' }}

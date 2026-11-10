@@ -1,0 +1,18 @@
+package {{base_package}}.mapper;
+
+import org.mapstruct.Mapper;
+
+/**
+ * Maps between the generated {{tag}} DTOs and domain types.
+ *
+ * <p>Scaffolded once by o2j from {{spec_hash}}; yours to edit and never overwritten. This and
+ * the {@code api} package are the only places allowed to see generated DTOs (ArchUnit enforces
+ * it), so a spec change touches two packages rather than the whole service.
+ */
+@Mapper(config = MapStructConfig.class)
+public interface {{mapper}} {
+{{#operations}}
+
+  // TODO(O2J): {{operation_id}} - {{request_type}} -> domain, domain -> {{response_type}}
+{{/operations}}
+}

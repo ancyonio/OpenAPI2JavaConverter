@@ -1,0 +1,76 @@
+{
+  "$defs": {
+    "DowngradeEntry": {
+      "additionalProperties": false,
+      "description": "One construct affected by a version downgrade.\n\n``load_bearing`` is the field that matters: a degradable loss is reported and the run\ncontinues, while a load-bearing loss changes what the API does and stops the pipeline.",
+      "properties": {
+        "construct": {
+          "title": "Construct",
+          "type": "string"
+        },
+        "pointer": {
+          "title": "Pointer",
+          "type": "string"
+        },
+        "classification": {
+          "enum": [
+            "degradable",
+            "load-bearing"
+          ],
+          "title": "Classification",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "impact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Impact"
+        }
+      },
+      "required": [
+        "construct",
+        "pointer",
+        "classification",
+        "action"
+      ],
+      "title": "DowngradeEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "sourceVersion": {
+      "title": "Sourceversion",
+      "type": "string"
+    },
+    "targetVersion": {
+      "title": "Targetversion",
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/DowngradeEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    }
+  },
+  "required": [
+    "sourceVersion",
+    "targetVersion"
+  ],
+  "title": "DowngradeReport",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://o2j.dev/schemas/downgrade-report.schema.json"
+}

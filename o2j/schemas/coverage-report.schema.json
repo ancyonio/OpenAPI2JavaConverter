@@ -1,0 +1,98 @@
+{
+  "$defs": {
+    "Gate": {
+      "additionalProperties": false,
+      "properties": {
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "failedOn": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failedon"
+        }
+      },
+      "required": [
+        "passed"
+      ],
+      "title": "Gate",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "lineCoverage": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Linecoverage"
+    },
+    "branchCoverage": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Branchcoverage"
+    },
+    "serviceLineCoverage": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Servicelinecoverage"
+    },
+    "mutationScore": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mutationscore"
+    },
+    "thresholds": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Thresholds",
+      "type": "object"
+    },
+    "gate": {
+      "$ref": "#/$defs/Gate"
+    }
+  },
+  "required": [
+    "gate"
+  ],
+  "title": "CoverageReport",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://o2j.dev/schemas/coverage-report.schema.json"
+}

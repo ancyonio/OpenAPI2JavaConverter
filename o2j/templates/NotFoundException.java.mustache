@@ -1,0 +1,18 @@
+package {{base_package}}.error;
+
+import org.springframework.http.HttpStatus;
+
+/** The requested resource does not exist. Maps to 404. */
+public class NotFoundException extends DomainException {
+
+  private static final long serialVersionUID = 1L;
+
+  public NotFoundException(String resource, Object id) {
+    super("not-found", "%s %s was not found".formatted(resource, id));
+  }
+
+  @Override
+  public HttpStatus status() {
+    return HttpStatus.NOT_FOUND;
+  }
+}

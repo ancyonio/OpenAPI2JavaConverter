@@ -1,0 +1,236 @@
+package {{base_package}}.error;
+
+import jakarta.validation.ConstraintViolationException;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.beans.TypeMismatchException;
+import org.springframework.context.MessageSourceResolvable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.method.ParameterValidationResult;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+/**
+ * The single place HTTP error responses are produced, as RFC 9457 Problem Details.
+ *
+ * <p>One advice for the whole service means one error shape, one client-side handler and one
+ * set of tests. Per-endpoint error handling multiplies all three.
+ *
+ * <p>It extends {@link ResponseEntityExceptionHandler} on purpose. Without that, Spring Boot's
+ * own problem-details handler answers every framework exception (bad JSON, wrong parameter
+ * type, 405, 415, ...) with {@code about:blank} and no correlation id, and the handlers below
+ * never run. Extending it also makes Boot's handler back off, so there is exactly one.
+ *
+ * <p>Security failures are mapped here too: the filter chain hands them over through {@code
+ * config.ProblemDetailsSecurityHandler}, and {@code @PreAuthorize} throws them from inside the
+ * controller. Without explicit handlers, the catch-all below turned every 403 into a 500.
+ *
+ * <p>No handler puts an exception message from an unexpected failure into {@code detail}: that
+ * is how stack traces, SQL fragments and internal class names leak to callers.
+ */
+@RestControllerAdvice
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+  private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+  private static final String PROBLEM_BASE = "https://problems.{{group_id}}/{{artifact_id}}/";
+  private static final URI BLANK = URI.create("about:blank");
+
+  @ExceptionHandler(DomainException.class)
+  ResponseEntity<ProblemDetail> onDomain(DomainException exception) {
+    log.info("domain failure code={} status={}", exception.code(), exception.status().value());
+    return respond(problem(exception.status(), exception.code(), exception.getMessage()));
+  }
+
+  @ExceptionHandler(ConstraintViolationException.class)
+  ResponseEntity<ProblemDetail> onConstraintViolation(ConstraintViolationException exception) {
+    List<Map<String, String>> errors =
+        exception.getConstraintViolations().stream()
+            .map(
+                violation ->
+                    Map.of(
+                        "field", violation.getPropertyPath().toString(),
+                        "message", violation.getMessage()))
+            .toList();
+    return respond(validationProblem(errors));
+  }
+
+  @ExceptionHandler(AuthenticationException.class)
+  ResponseEntity<ProblemDetail> onUnauthenticated(AuthenticationException exception) {
+    log.debug("authentication failed", exception);
+    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+        .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+        .body(problem(HttpStatus.UNAUTHORIZED, "unauthenticated", "Authentication is required."));
+  }
+
+  @ExceptionHandler(AccessDeniedException.class)
+  ResponseEntity<ProblemDetail> onAccessDenied(AccessDeniedException exception) {
+    log.debug("access denied", exception);
+    return respond(
+        problem(
+            HttpStatus.FORBIDDEN, "forbidden", "The caller is not allowed to perform this operation."));
+  }
+
+  @ExceptionHandler(Exception.class)
+  ResponseEntity<ProblemDetail> onUnexpected(Exception exception) {
+    // Log the cause, return nothing about it. The correlation id is how support ties the
+    // caller's 500 back to this log line.
+    log.error("unhandled exception", exception);
+    return respond(
+        problem(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "internal-error",
+            "The request could not be completed. Quote the correlationId when reporting this."));
+  }
+
+  // ---- Framework exceptions, routed here by ResponseEntityExceptionHandler -----------------
+
+  @Override
+  protected ResponseEntity<Object> handleMethodArgumentNotValid(
+      MethodArgumentNotValidException exception,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    List<Map<String, String>> errors =
+        exception.getBindingResult().getFieldErrors().stream()
+            .map(
+                error ->
+                    Map.of(
+                        "field", error.getField(),
+                        "message", String.valueOf(error.getDefaultMessage())))
+            .toList();
+    return handleExceptionInternal(exception, validationProblem(errors), headers, status, request);
+  }
+
+  @Override
+  protected ResponseEntity<Object> handleHandlerMethodValidationException(
+      HandlerMethodValidationException exception,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    List<Map<String, String>> errors = new ArrayList<>();
+    for (ParameterValidationResult result : exception.getParameterValidationResults()) {
+      String name = String.valueOf(result.getMethodParameter().getParameterName());
+      for (MessageSourceResolvable error : result.getResolvableErrors()) {
+        errors.add(Map.of("field", name, "message", String.valueOf(error.getDefaultMessage())));
+      }
+    }
+    return handleExceptionInternal(
+        exception, validationProblem(errors), headers, HttpStatus.BAD_REQUEST, request);
+  }
+
+  @Override
+  protected ResponseEntity<Object> handleHttpMessageNotReadable(
+      HttpMessageNotReadableException exception,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    // The parser message can echo the request body, so it is logged rather than returned.
+    log.debug("unreadable request body", exception);
+    ProblemDetail problem =
+        problem(
+            HttpStatus.BAD_REQUEST,
+            "malformed-request",
+            "The request body could not be read: it is not valid JSON or a value has the wrong"
+                + " type.");
+    return handleExceptionInternal(exception, problem, headers, status, request);
+  }
+
+  @Override
+  protected ResponseEntity<Object> handleMissingServletRequestParameter(
+      MissingServletRequestParameterException exception,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    ProblemDetail problem =
+        problem(
+            HttpStatus.BAD_REQUEST,
+            "invalid-parameter",
+            "Required parameter '%s' is missing.".formatted(exception.getParameterName()));
+    return handleExceptionInternal(exception, problem, headers, status, request);
+  }
+
+  @Override
+  protected ResponseEntity<Object> handleTypeMismatch(
+      TypeMismatchException exception,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    String name = exception.getPropertyName();
+    String detail =
+        name == null
+            ? "A request parameter has the wrong type."
+            : "Parameter '%s' has the wrong type.".formatted(name);
+    ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "invalid-parameter", detail);
+    return handleExceptionInternal(exception, problem, headers, status, request);
+  }
+
+  /**
+   * Every response produced by the base class passes through here, including the ones not
+   * overridden above (405, 415, 404, 406, ...). Giving them a stable type and the correlation
+   * id keeps one error shape across the whole service.
+   */
+  @Override
+  protected ResponseEntity<Object> createResponseEntity(
+      Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
+    if (body instanceof ProblemDetail problem) {
+      if (problem.getType() == null || BLANK.equals(problem.getType())) {
+        problem.setType(URI.create(PROBLEM_BASE + slug(statusCode)));
+      }
+      stampCorrelationId(problem);
+    }
+    return super.createResponseEntity(body, headers, statusCode, request);
+  }
+
+  // ---- Helpers ------------------------------------------------------------------------------
+
+  private static ProblemDetail validationProblem(List<Map<String, String>> errors) {
+    ProblemDetail problem =
+        problem(HttpStatus.BAD_REQUEST, "validation-failed", "Validation failed");
+    problem.setTitle("Validation failed");
+    problem.setProperty("errors", errors);
+    return problem;
+  }
+
+  private static ProblemDetail problem(HttpStatus status, String code, String detail) {
+    ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
+    problem.setType(URI.create(PROBLEM_BASE + code));
+    stampCorrelationId(problem);
+    return problem;
+  }
+
+  private static ResponseEntity<ProblemDetail> respond(ProblemDetail problem) {
+    return ResponseEntity.status(problem.getStatus()).body(problem);
+  }
+
+  private static void stampCorrelationId(ProblemDetail problem) {
+    Map<String, Object> properties = problem.getProperties();
+    if (properties == null || !properties.containsKey("correlationId")) {
+      problem.setProperty("correlationId", MDC.get(CorrelationId.MDC_KEY));
+    }
+  }
+
+  private static String slug(HttpStatusCode statusCode) {
+    HttpStatus status = HttpStatus.resolve(statusCode.value());
+    return status == null
+        ? "http-" + statusCode.value()
+        : status.name().toLowerCase(Locale.ROOT).replace('_', '-');
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "$defs": {
+    "Redaction": {
+      "additionalProperties": false,
+      "properties": {
+        "pointer": {
+          "title": "Pointer",
+          "type": "string"
+        },
+        "pattern": {
+          "title": "Pattern",
+          "type": "string"
+        },
+        "excerpt": {
+          "title": "Excerpt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pointer",
+        "pattern",
+        "excerpt"
+      ],
+      "title": "Redaction",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "redactions": {
+      "items": {
+        "$ref": "#/$defs/Redaction"
+      },
+      "title": "Redactions",
+      "type": "array"
+    }
+  },
+  "title": "SanitizationReport",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://o2j.dev/schemas/sanitization-report.schema.json"
+}

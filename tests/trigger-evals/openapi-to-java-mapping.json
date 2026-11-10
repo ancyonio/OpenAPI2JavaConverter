@@ -1,0 +1,66 @@
+[
+  {
+    "query": "the generated DTO has createdAt as a LocalDateTime but the api returns timestamps with offsets. we've already seen one bug where a time came out an hour off",
+    "should_trigger": true
+  },
+  {
+    "query": "our spec declares total as number/double and finance says the invoice totals are off by a penny on about 1 in 200 orders",
+    "should_trigger": true
+  },
+  {
+    "query": "what java type should format: binary map to? we're accepting file uploads up to 200MB and the generated model has byte[]",
+    "should_trigger": true
+  },
+  {
+    "query": "i'm hand-writing the domain record to match our contract. the spec has a oneOf with a discriminator for payment methods, what's the idiomatic java 21 shape",
+    "should_trigger": true
+  },
+  {
+    "query": "spec has an int64 field for the account number and the generated class has Integer. is that going to overflow",
+    "should_trigger": true
+  },
+  {
+    "query": "we need a PATCH endpoint where absent means leave alone and null means clear the field. how do i model that in java without it being horrible",
+    "should_trigger": true
+  },
+  {
+    "query": "additionalProperties: true on one of our schemas — the generated type is Map<String,Object> and nothing validates it. what are my options",
+    "should_trigger": true
+  },
+  {
+    "query": "our enum field generates a java enum and deserialization now blows up because the provider added a new status value. what should the type have been",
+    "should_trigger": true
+  },
+  {
+    "query": "can you take a look at api/openapi.yaml before i hand it to the backend team? they're going to generate the server off it and i want to know if anything's going to bite us",
+    "should_trigger": false
+  },
+  {
+    "query": "convert this swagger 2.0 file to openapi 3.1 — it's got body params and a host/basePath block, definitions, the lot",
+    "should_trigger": false
+  },
+  {
+    "query": "regenerating from the same unchanged spec gives me a 400-file diff every time. content looks identical, something in the headers maybe",
+    "should_trigger": false
+  },
+  {
+    "query": "is it ok for my service method to take the generated CreateOrderRequest DTO directly? it saves writing a mapper and the fields are identical",
+    "should_trigger": false
+  },
+  {
+    "query": "our protobuf int64 fields come through as strings in the generated typescript client and the frontend is doing parseInt everywhere",
+    "should_trigger": false
+  },
+  {
+    "query": "mapping a postgres jsonb column onto a java object with hibernate — do i need a custom type or is there built in support now",
+    "should_trigger": false
+  },
+  {
+    "query": "our avro schema uses a logical decimal type and the generated java has ByteBuffer. how do people normally handle that",
+    "should_trigger": false
+  },
+  {
+    "query": "how do i get jackson to serialize a java enum as lowercase without annotating every constant",
+    "should_trigger": false
+  }
+]

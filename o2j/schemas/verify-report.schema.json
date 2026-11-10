@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "mode": {
+      "enum": [
+        "determinism",
+        "drift",
+        "contract"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "detail": {
+      "title": "Detail",
+      "type": "string"
+    },
+    "differences": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Differences",
+      "type": "array"
+    }
+  },
+  "required": [
+    "mode",
+    "passed",
+    "detail"
+  ],
+  "title": "VerifyReport",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://o2j.dev/schemas/verify-report.schema.json"
+}

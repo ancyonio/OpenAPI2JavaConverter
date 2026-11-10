@@ -1,0 +1,82 @@
+[
+  {
+    "query": "regenerating from the same unchanged spec gives me a 400-file diff every time. content looks identical, something in the headers maybe",
+    "should_trigger": true
+  },
+  {
+    "query": "every PR in this repo carries about 2000 lines of generated churn and reviewers have stopped reading the diffs entirely. generated sources are committed under src/gen",
+    "should_trigger": true
+  },
+  {
+    "query": "i'm setting up openapi-generator for a new service. what do i need to get right at the start so we don't regret it",
+    "should_trigger": true
+  },
+  {
+    "query": "nobody on the team will re-run the generator because last time it wiped someone's service implementation. how do i make it safe to run again",
+    "should_trigger": true
+  },
+  {
+    "query": "the spec changed and now i have to regenerate over code we've hand written for six months. what's going to break and how do i find out before i run it",
+    "should_trigger": true
+  },
+  {
+    "query": "should generated code be checked in or gitignored? half the team wants it visible in the IDE, the other half is sick of the diffs",
+    "should_trigger": true
+  },
+  {
+    "query": "someone renamed a field in the spec, we regenerated, and the mapper happily compiled and started writing null into that column in prod. how do we make that impossible",
+    "should_trigger": true
+  },
+  {
+    "query": "our graphql codegen output differs between my mac and CI linux. same schema, same version pinned. driving me mad",
+    "should_trigger": true
+  },
+  {
+    "query": "we generate DTOs from the spec and they're imported in about 80 files across the service. every schema change is now a two day refactor",
+    "should_trigger": true
+  },
+  {
+    "query": "protobuf codegen: the generated python files have a timestamp comment so our docker layer cache busts on every build even when nothing changed",
+    "should_trigger": true
+  },
+  {
+    "query": "can you review api/openapi.yaml? i want to know if the contract itself is sound before anyone generates from it",
+    "should_trigger": false
+  },
+  {
+    "query": "convert this swagger 2.0 document to openapi 3.1 and tell me what gets lost",
+    "should_trigger": false
+  },
+  {
+    "query": "we're on boot 3.5.16 which is EOL. plan the move to 4.x for me",
+    "should_trigger": false
+  },
+  {
+    "query": "my OrderServiceTest has 90% line coverage but the mutation score is terrible. what should i assert that i'm not",
+    "should_trigger": false
+  },
+  {
+    "query": "review this delegate implementation, i think the transaction boundary is wrong and there's no read timeout on the payment client",
+    "should_trigger": false
+  },
+  {
+    "query": "the build is non-deterministic because two tests share a temp directory and race. flaky about one run in twenty",
+    "should_trigger": false
+  },
+  {
+    "query": "our docker images aren't reproducible — different digests from the same commit. i think it's the apt package versions",
+    "should_trigger": false
+  },
+  {
+    "query": "maven build order keeps changing between machines and module B sometimes builds before module A which it depends on",
+    "should_trigger": false
+  },
+  {
+    "query": "webpack output hashes change on every build even with no source changes. it's breaking our CDN caching",
+    "should_trigger": false
+  },
+  {
+    "query": "how do i make my terraform plan output stable so i can diff it in CI? the resource ordering shifts around",
+    "should_trigger": false
+  }
+]

@@ -1,0 +1,54 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "specHash": {
+      "title": "Spechash",
+      "type": "string"
+    },
+    "generatorVersion": {
+      "title": "Generatorversion",
+      "type": "string"
+    },
+    "outputDir": {
+      "title": "Outputdir",
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "scaffolded": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Scaffolded",
+      "type": "array"
+    },
+    "conflicts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Conflicts",
+      "type": "array"
+    },
+    "command": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Command",
+      "type": "array"
+    }
+  },
+  "required": [
+    "specHash",
+    "generatorVersion",
+    "outputDir"
+  ],
+  "title": "GenerationResult",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://o2j.dev/schemas/generation-result.schema.json"
+}

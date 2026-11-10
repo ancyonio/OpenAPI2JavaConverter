@@ -1,0 +1,82 @@
+[
+  {
+    "query": "my OrderServiceTest has 94% line coverage but PIT reports a 31% mutation score. what am i actually missing",
+    "should_trigger": true
+  },
+  {
+    "query": "write tests for OrderService.create. it calls a payment client and a repository and throws on a declined payment",
+    "should_trigger": true
+  },
+  {
+    "query": "jacoco is failing the build at 81% and i need 85%. quickest way to get there on the service package",
+    "should_trigger": true
+  },
+  {
+    "query": "we have 1400 tests and a green build and we still shipped a bug where the order total was off by the shipping cost. the method was covered",
+    "should_trigger": true
+  },
+  {
+    "query": "mockito keeps shouting UnnecessaryStubbingException at me on about a dozen tests. is it safe to just add lenient() everywhere",
+    "should_trigger": true
+  },
+  {
+    "query": "what cases do i actually need for POST /orders? it has a request body, an idempotency key header, requires a scope, returns 201 and can 409",
+    "should_trigger": true
+  },
+  {
+    "query": "review these tests for me — new dev wrote them, they pass, but something feels off about how much is mocked",
+    "should_trigger": true
+  },
+  {
+    "query": "our @WebMvcTest for the create endpoint asserts the 201 but doesn't check anything else. what else should be in there",
+    "should_trigger": true
+  },
+  {
+    "query": "should i use h2 for the repository tests? it's much faster than spinning up testcontainers in CI",
+    "should_trigger": false
+  },
+  {
+    "query": "i've got a service that calls Instant.now() and UUID.randomUUID() and i genuinely cannot write an assertion on the output. do i mock the static",
+    "should_trigger": true
+  },
+  {
+    "query": "review my OrdersApiDelegateImpl, i think the @Transactional is in the wrong place and the 201 isn't setting Location",
+    "should_trigger": false
+  },
+  {
+    "query": "implement createOrder against the generated delegate interface",
+    "should_trigger": false
+  },
+  {
+    "query": "upgrade to java 21 — there's a mockito bytebuddy warning in the build output already",
+    "should_trigger": false
+  },
+  {
+    "query": "review api/openapi.yaml before the backend generates from it",
+    "should_trigger": false
+  },
+  {
+    "query": "our sonarqube quality gate is failing on duplicated code in the test sources, about 400 lines flagged across the slice tests",
+    "should_trigger": false
+  },
+  {
+    "query": "our playwright e2e suite is flaky, about one run in five fails on the checkout step with a timeout",
+    "should_trigger": false
+  },
+  {
+    "query": "set up pytest fixtures for this python project, we need a shared database fixture across three test modules",
+    "should_trigger": false
+  },
+  {
+    "query": "the CI job runs tests for 40 minutes. can we parallelise surefire across modules",
+    "should_trigger": false
+  },
+  {
+    "query": "write a jmeter load test plan for the orders endpoint, 500 concurrent users ramping over two minutes",
+    "should_trigger": false
+  },
+  {
+    "query": "our contract tests against the vendor's sandbox keep failing because they reset the sandbox data nightly",
+    "should_trigger": false
+  }
+]

@@ -1,0 +1,18 @@
+package {{base_package}}.error;
+
+import org.springframework.http.HttpStatus;
+
+/** The request conflicts with current state, e.g. a duplicate create. Maps to 409. */
+public class ConflictException extends DomainException {
+
+  private static final long serialVersionUID = 1L;
+
+  public ConflictException(String message) {
+    super("conflict", message);
+  }
+
+  @Override
+  public HttpStatus status() {
+    return HttpStatus.CONFLICT;
+  }
+}

@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "o2j"
+version = "1.0.0"
+description = "OpenAPI YAML to Java Spring Boot conversion factory, driven by GitHub Copilot agents"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+
+dependencies = [
+  "typer>=0.15.1",
+  "pydantic>=2.10.0",
+  "ruamel.yaml>=0.18.6",
+  "jsonschema>=4.23.0",
+  "rich>=13.9.0",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.2.0"]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-cov>=6.0.0",
+  "ruff>=0.8.0",
+  "mypy>=1.13.0",
+]
+
+[project.scripts]
+o2j = "o2j.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["o2j*"]
+
+[tool.setuptools.package-data]
+o2j = ["schemas/*.json", "templates/*.mustache", "rules/spectral/*.yaml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF", "S"]
+ignore = ["S603", "S607"]  # subprocess use is deliberate and argument-list based
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+# N818 wants an "Error" suffix on every exception. These names read as the pipeline outcome
+# they represent at the raise site (`raise LoadBearingLoss(...)`), and they all derive from
+# O2JError, so the category is already explicit. Narrow, single-rule, single-file.
+"o2j/errors.py" = ["N818"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["ruamel.*", "mcp.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+  "requires_java: needs a JDK and Maven on PATH",
+  "requires_generator: needs the openapi-generator jar",
+]

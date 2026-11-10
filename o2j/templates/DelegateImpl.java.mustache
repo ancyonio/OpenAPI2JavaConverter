@@ -1,0 +1,49 @@
+package {{base_package}}.api;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+
+import {{base_package}}.mapper.{{mapper}};
+import {{base_package}}.service.{{service}};
+
+/**
+ * Delegate for the generated {@code {{api_interface}}} interface.
+ *
+ * <p>Scaffolded once by o2j from {{spec_hash}}; this file is yours to edit and will never be
+ * overwritten. If the spec changes, o2j writes {@code {{delegate}}.java.o2j-new} beside it and
+ * reports a conflict instead.
+ *
+ * <p>Keep this class thin. Its only job is to map the request DTO to a domain object, call one
+ * service method, map the result back, and return the status the spec declares. Business logic
+ * belongs in {@code {{service}}}; validation has already run via Bean Validation on the
+ * generated DTOs; error mapping belongs to {@code GlobalExceptionHandler}.
+ */
+@Component
+public class {{delegate}} implements {{api_interface}}Delegate {
+
+  private final {{service}} service;
+  private final {{mapper}} mapper;
+
+  public {{delegate}}({{service}} service, {{mapper}} mapper) {
+    this.service = service;
+    this.mapper = mapper;
+  }
+{{#operations}}
+
+  /**
+   * {{method}} {{path}}
+   *
+   * <p>Returns {{success_status}} on success. Required test cases: {{required_test_count}}
+   * (run: o2j testplan; claim each with a
+   * {@code // o2j:{{operation_id}}:<case>} marker on the test method).
+   */
+  // TODO(O2J): implement {{operation_id}}.
+  //   1. map the request DTO to a domain object with the MapStruct mapper
+  //   2. call exactly one {{service}} method
+  //   3. map the result back and return ResponseEntity.status({{success_status}})
+  //   Do not catch business errors here - throw a DomainException and let the advice map it.
+{{#idempotent}}  //   This operation declares Idempotency-Key: a repeated key must return the same
+  //   response and cause exactly one side effect.
+{{/idempotent}}{{#paginated}}  //   This operation is paginated: accept Pageable and return a page envelope.
+{{/paginated}}{{/operations}}
+}
