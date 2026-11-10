@@ -150,10 +150,10 @@ def _check_exchange(
     body = exchange.get("body") or ""
     if not body.strip():
         # A declared body schema is a promise to return one. HEAD never carries a body.
-        declared = sorted(m for m, media in content.items()
-                          if isinstance(media, dict) and isinstance(media.get("schema"), dict))
-        if declared and route.method != "HEAD":
-            return [f"empty body, but the response declares a schema for {', '.join(declared)}"]
+        schemas = sorted(m for m, media in content.items()
+                         if isinstance(media, dict) and isinstance(media.get("schema"), dict))
+        if schemas and route.method != "HEAD":
+            return [f"empty body, but the response declares a schema for {', '.join(schemas)}"]
         return []
 
     if not content:

@@ -59,6 +59,10 @@ SCAFFOLD: tuple[tuple[str, str], ...] = (
         "ArchitectureTest.java.mustache",
         "src/test/java/{pkg_path}/architecture/ArchitectureTest.java",
     ),
+    (
+        "GlobalExceptionHandlerTest.java.mustache",
+        "src/test/java/{pkg_path}/error/GlobalExceptionHandlerTest.java",
+    ),
 )
 
 # Spec-derived files o2j owns and rewrites on every run.
@@ -225,6 +229,14 @@ def generate(
         _write_once(
             "EmsBridgeCredentials.java.mustache",
             root / f"src/main/java/{context['pkg_path']}/ems/EmsBridgeCredentials.java",
+            context,
+            scaffolded,
+            conflicts,
+            root,
+        )
+        _write_once(
+            "EmsBridgeCredentialsTest.java.mustache",
+            root / f"src/test/java/{context['pkg_path']}/ems/EmsBridgeCredentialsTest.java",
             context,
             scaffolded,
             conflicts,
@@ -422,7 +434,7 @@ def _idempotency_context(plan: GenerationPlan) -> dict[str, Any]:
     ops = sorted(
         (op for op in plan.operations if op.idempotent), key=lambda o: o.operation_id
     )
-    entries = [
+    entries: list[dict[str, Any]] = [
         {
             "operation_id": op.operation_id,
             "method": op.method,

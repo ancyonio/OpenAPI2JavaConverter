@@ -74,6 +74,13 @@ o2j:
     enabled: ${O2J_EMS_ENABLED:false}
     # Where the bridge sends HTTP calls. Defaults to this instance.
     # target-base-url: http://localhost:8080
-    # The bridge's own bearer token; from a secret, never in this file.
+    # Production: the bridge's token from the OAuth2 client-credentials grant. Leave token-uri
+    # empty to fall back to bearer-token below (tests only). Secrets from the environment.
+    oauth2:
+      token-uri: ${O2J_EMS_TOKEN_URI:}
+      client-id: ${O2J_EMS_CLIENT_ID:}
+      client-secret: ${O2J_EMS_CLIENT_SECRET:}
+      scope: ${O2J_EMS_SCOPE:{{ems_scopes}}}
+    # A static bearer token, used only when token-uri is empty; from a secret, never this file.
     bearer-token: ${O2J_EMS_BEARER_TOKEN:}
 {{/ems_enabled}}

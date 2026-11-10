@@ -562,7 +562,7 @@ def derive_ems(plan: GenerationPlan, spec: dict[str, Any]) -> dict[str, Operatio
                     f"{ident}_via_{dest}_status{status}_isFault",
                     [op.marker(f"ems:fault-mapped:{status}")],
                     [
-                        _stub_respond(oid, status, None),
+                        f"stub.failWithStatus({_j(oid)}, {status});",
                         call,
                         reply_ok,
                         status_is.format(status),

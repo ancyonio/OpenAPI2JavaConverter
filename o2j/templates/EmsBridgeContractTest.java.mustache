@@ -38,7 +38,11 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
     properties = {
       "o2j.ems.enabled=true",
       "o2j.ems.bearer-token=o2j-ems-test-token",
-      "spring.artemis.mode=embedded"
+      "spring.artemis.mode=embedded",
+      // Artemis's audit log reads the caller through Subject.getSubject, which JDK 23 and
+      // later refuse; at INFO it ran during broker start-up and the embedded broker never came
+      // up. The audit log is noise for a test broker anyway.
+      "logging.level.org.apache.activemq.audit=WARN"
     })
 @Import(EmsBridgeContractTest.Stubs.class)
 class EmsBridgeContractTest {

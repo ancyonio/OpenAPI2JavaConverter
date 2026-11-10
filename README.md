@@ -198,20 +198,32 @@ Runs `openapi-generator` through Maven and scaffolds the rest, all into `generat
 | `src/main/java/<base_package>/api/` | `*ApiDelegateImpl`: one method per endpoint | you |
 | `src/main/java/<base_package>/service/` | business services the delegates call | you |
 | `src/main/java/<base_package>/mapper/` | MapStruct mappers between DTOs and domain types | you |
-| `src/main/java/<base_package>/config/` | `SecurityConfig`, `OpenApiSecurityRules`, correlation-id filter | o2j |
+| `src/main/java/<base_package>/config/` | `SecurityConfig`, `OpenApiSecurityRules`, correlation-id filter, `IdempotencyFilter` (when the spec declares `Idempotency-Key`) | o2j |
 | `src/main/java/<base_package>/error/` | `GlobalExceptionHandler` (RFC 9457 Problem Details), domain exceptions | o2j |
-| `src/test/java/<base_package>/` | contract tests (regenerated) and business-test skeletons (yours) | both |
+| `src/test/java/<base_package>/` | contract tests (regenerated), `GlobalExceptionHandlerTest`, and business-test skeletons (yours) | both |
 
 Contract tests are regenerated on every run, and `@Disabled` skeletons are created for the
 business cases. If a scaffolded file you changed would be overwritten, o2j writes
 `<file>.o2j-new` and reports a `CONFLICT` for you to merge by hand. Use `--no-run-generator`
 to scaffold without Maven.
 
-Confirm that regenerating gives byte-identical output:
+`IdempotencyFilter` stores each 2xx response under its `Idempotency-Key`, scoped to the
+caller. It replays a repeated request without calling the delegate (`Idempotent-Replayed:
+true`). It answers 409 while the first request is still running, and 422 when a key is
+reused for a different request. The default store is in memory and suits one instance only;
+with several replicas, declare a shared `IdempotencyStore` bean. `o2j.idempotency.ttl`
+(default 24 hours) sets how long keys are kept.
+
+Confirm that regenerating gives byte-identical output. This runs normalize, plan and generate
+twice into scratch trees and diffs every file; `--with-generator` also compares the DTOs and
+interfaces openapi-generator writes (needs Maven):
 
 ```bash
-python -I -m o2j verify --mode determinism
+python -I -m o2j verify --mode determinism [--with-generator]
 ```
+
+The result is written to `work/gate/verify-determinism.json`, and `o2j report` records it in
+the manifest's `determinism.verified`.
 
 ### 9. Implement the endpoints
 
@@ -437,9 +449,15 @@ checking the status passes even when the body is missing a required field. Every
 service has a test-scope `O2jConformanceRecorder` filter that records each HTTP exchange any
 MockMvc or `@SpringBootTest` test produces, and `o2j verify --mode conformance` checks each
 one against the spec: status declared, content type declared, body valid against the JSON
-Schema (formats included). `contract:response-schema` only counts for an operation when its
-recorded 2xx responses conform. The more real behaviour the suite exercises, the more of the
-service's real output is checked.
+Schema (formats included), and no empty body where the response declares a schema.
+`contract:response-schema` only counts for an operation when its recorded 2xx responses
+conform.
+
+Responses answered by the generated contract tests' stub delegate are recorded as `stubbed`.
+They still have to conform, but they prove only the contract layer. Each operation also needs
+a conforming 2xx from the real delegate and service, typically from your `<Api>BehaviourTest`;
+until then `verify --mode conformance` reports *only stubbed responses recorded*. The more
+real behaviour the suite exercises, the more of the service's real output is checked.
 
 The security cases are not left to an agent. o2j regenerates `OpenApiSecurityRules` (one
 Spring Security rule per operation, from the spec's `security` requirements) and
@@ -579,9 +597,13 @@ end on an embedded Artemis broker: correlated reply, every mapped fault, the tim
 The bridge is enabled per deployment (`O2J_EMS_ENABLED=true`) and is removed when the last
 consumer has moved to HTTP. In production it needs TIBCO's Jakarta JMS client and a
 `TibjmsConnectionFactory` bean: the client is not on Maven Central, so it comes from your
-internal repository. `EmsBridgeCredentials` (yours) supplies the bridge's bearer token: replace
-the static token with a client-credentials flow before production. Payloads are JSON; XML
-messages need a transformation step that this bridge does not provide.
+internal repository. `EmsBridgeCredentials` (yours) supplies the bridge's bearer token. In
+production set `O2J_EMS_TOKEN_URI`, `O2J_EMS_CLIENT_ID` and `O2J_EMS_CLIENT_SECRET`: the
+bridge then uses the OAuth2 client-credentials grant and caches the token until 30 seconds
+before it expires. `O2J_EMS_SCOPE` defaults to the bridged operations' scopes. Without a token
+URI it falls back to the static `O2J_EMS_BEARER_TOKEN`, which is meant for tests.
+`EmsBridgeCredentialsTest` checks the grant against a local token endpoint. Payloads are JSON;
+XML messages need a transformation step that this bridge does not provide.
 
 ## Two constraints to know about
 

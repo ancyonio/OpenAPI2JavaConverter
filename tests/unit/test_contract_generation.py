@@ -334,4 +334,5 @@ class TestIdempotency:
         uuid_key = contracttests._distinct_key({"format": "uuid"}, "a", "fallback")
         assert len(uuid_key) == 36 and uuid_key.count("-") == 4
         assert contracttests._distinct_key({"pattern": "^[A-Z]+$"}, "a", "KEEP") == "KEEP"
-        assert contracttests._distinct_key({}, "a", "x") != contracttests._distinct_key({}, "b", "x")
+        first = contracttests._distinct_key({}, "a", "x")
+        assert first != contracttests._distinct_key({}, "b", "x")
