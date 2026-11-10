@@ -78,11 +78,13 @@ exit code listed under [Pipeline](#pipeline).
 | Python 3.11+ | the `o2j` CLI |
 | JDK 17 / 21 / 25 | building the generated service (must match `target.java_version`) |
 | Maven 3.9+ | running `openapi-generator` and the build gates |
-| Node.js (`npx`) or `spectral` | house API-standard linting (optional) |
+| Node.js (`npx`), `spectral` or `vacuum` | `o2j lint`, the advisory Spectral pass (optional; `o2j validate` does not need it) |
 | `gitleaks` | the secret-scanning gate (optional) |
+| `SONAR_TOKEN` | Sonar analysis in `o2j quality`, when `quality.sonar.enabled` (optional) |
 
 ```bash
 pip install -e ".[dev,mcp]"
+pre-commit install          # optional: run the lint hooks on every commit (see Linting)
 ```
 
 ### 2. Put the spec in `openapi/` and configure the service
@@ -132,10 +134,30 @@ never guess which one you meant.
 python -I -m o2j validate openapi/orders.yaml
 ```
 
-Checks syntax, semantics and the house rules: security on every operation, pagination on
-collections, Problem Details error responses, naming. Each finding prints a `fix:` hint, and a
-SARIF report is written to `work/01-validate/` for code-scanning UIs. **Fix the spec in
-`openapi/`, not the generated code.** Exit `3` means at least one error remains.
+Runs these checks in order:
+
+- **Parsing:** malformed YAML and duplicate keys.
+- **Version:** the declared version is supported.
+- **Official OpenAPI JSON Schema** for that version (`O2J-V-003`): misspelt keywords, wrong
+  shapes, missing required fields.
+- **Semantic traps:** `$ref` resolution, nullability and bound forms for the version,
+  `operationId` rules.
+- **House rules:** security on every operation, pagination on collections, Problem Details
+  error responses, path naming.
+- **Breaking changes** against the released spec (`O2J-V-011`), when a baseline is set.
+
+Each finding prints a `fix:` hint, and a SARIF report is written to `work/01-validate/` for
+code-scanning UIs. **Fix the spec in `openapi/`, not the generated code.** Exit `3` means at
+least one error remains.
+
+To check for breaking changes, pass the previously released spec, or a folder of released
+specs with the same file names:
+
+```bash
+python -I -m o2j validate openapi/orders.yaml --baseline released/orders.yaml
+```
+
+See [Linting](#linting) for what counts as breaking.
 
 ### 6. Normalize to the canonical version (S2)
 
@@ -221,7 +243,7 @@ python -I -m o2j verify --mode contract --static   # markers are on test methods
 
 ```bash
 mvn -f generated_Code/orders/pom.xml verify
-python -I -m o2j quality                        # Spotless, Checkstyle, PMD, SpotBugs, ArchUnit, OWASP, gitleaks
+python -I -m o2j quality                        # Spotless, Checkstyle, PMD, SpotBugs, ArchUnit, OWASP, gitleaks, Sonar
 python -I -m o2j coverage --no-run-build        # line, branch, service-layer and mutation thresholds
 python -I -m o2j verify --mode contract         # every required case claimed by a passing test
 python -I -m o2j verify --mode conformance      # every recorded response matches the spec
@@ -257,6 +279,7 @@ python -I -m o2j run --to generate                      # stop after codegen
 python -I -m o2j run --only orders --from gate          # re-gate one service after implementing it
 python -I -m o2j run --java 17                          # override the Java target
 python -I -m o2j run openapi/orders.yaml                # one file: service name from o2j.yaml
+python -I -m o2j run --baseline released/               # also fail on breaking changes
 ```
 
 A folder run writes each service to `generated_Code/<spec-name>/` and its stage artifacts to
@@ -272,9 +295,10 @@ Stages: `ingest`, `validate`, `normalize`, `plan`, `generate`, `gate`, `report`.
 Edit the spec in `openapi/` and re-run from `ingest`. Generated code and contract tests in
 `generated_Code/<service>/` are rebuilt. Scaffolds you already edited are kept, and any that
 conflict show up as `.o2j-new`. Use `python -I -m o2j verify --mode drift` to check whether the
-code still matches the spec, and set `validation.breaking_change_baseline` to the previous spec
-so breaking changes are flagged during validation. Renaming a spec file renames its service
-folder in folder runs, so move `generated_Code/<old-name>/` along with it.
+code still matches the spec. Validation flags breaking changes when a baseline is set, either
+with `--baseline` or with `validation.breaking_change_baseline` in `o2j.yaml`; on pull requests
+the O2J Convert workflow uses the base branch's `openapi/` automatically. Renaming a spec file
+renames its service folder in folder runs, so move `generated_Code/<old-name>/` along with it.
 
 ## Pipeline
 
@@ -292,11 +316,91 @@ folder in folder runs, so move `generated_Code/<old-name>/` along with it.
 Exit codes: `0` ok · `2` config · `3` validation · `4` load-bearing loss · `5` generation ·
 `6` gate · `7` determinism/drift.
 
+## Linting
+
+There are four layers. Only the first two block the pipeline.
+
+| Layer | Command | Blocking? | What it covers |
+|---|---|---|---|
+| OpenAPI validation | `o2j validate` (S1) | yes, exit 3 | official OpenAPI JSON Schema, semantic traps, house rules, breaking changes |
+| Java static analysis | `o2j quality` (S7) | yes, exit 6 | Spotless, Checkstyle, PMD, SpotBugs, ArchUnit, OWASP dependency check, gitleaks, Sonar |
+| Spectral second opinion | `o2j lint` | no, unless `--strict` | house ruleset plus Spectral's `spectral:oas` hygiene rules (descriptions, servers, tags) |
+| Repository hygiene | `pre-commit` | in CI (O2J Lint) | yamllint, actionlint, markdownlint, ruff, mypy, `o2j validate` on changed specs |
+
+### OpenAPI schema check
+
+`o2j validate` checks every spec against the JSON Schema the OpenAPI Initiative publishes for
+its version (2.0, 3.0 or 3.1), bundled with `openapi-spec-validator` so it runs offline. This
+catches what the targeted rules do not: a misspelt keyword, a `responses` written as a list, a
+parameter without `in`. Otherwise these reach `openapi-generator`, which often skips them
+without saying so. OpenAPI 3.2 has no published validator yet, so a 3.2 spec is checked after
+it is downgraded to 3.1.2.
+
+### Breaking changes
+
+Set a baseline and `o2j validate` compares the spec with the released one. Both are first
+normalized to OpenAPI 3.1, so a Swagger 2.0 baseline compares cleanly with a 3.1 successor.
+
+| Breaking (error in `production`, warning in `sandbox`) | Warning only |
+|---|---|
+| operation or success status removed; request or response media type removed | `operationId` renamed (renames generated client methods) |
+| new required parameter, request field or request body; parameter became required | new enum value in a response |
+| request type narrowed, request enum value removed, request limit tightened | request `pattern` changed |
+| request property removed (the service rejects unknown properties) | |
+| response property removed or no longer required; response type widened (e.g. now nullable) | |
+| endpoint was public and now needs auth; new scope required | |
+
+The baseline is a file, or a folder holding the released specs with the same file names. Set it
+with `--baseline` or `validation.breaking_change_baseline`. A spec with no counterpart in the
+folder is treated as new. Use `validation.breaking_change_severity` to override the
+profile-based severity. Renaming a path parameter (`{id}` to `{orderId}`) is not breaking.
+Changes inside `allOf`/`oneOf`/`anyOf` members are not compared member by member.
+
+### Spectral (`o2j lint`)
+
+```bash
+python -I -m o2j lint                     # every spec in openapi/, advisory
+python -I -m o2j lint --strict            # exit 3 on errors (exit 2 if no linter can run)
+python -I -m o2j lint --tool vacuum       # or: spectral, npx, auto (default)
+```
+
+`o2j lint` uses a `spectral` binary, then `vacuum`, then Spectral through `npx` at the version
+pinned in `o2j.yaml` (`versions.spectral_cli`). The ruleset is `validation.spectral_ruleset`.
+Findings go to `work/01-validate/lint-report.json` and `lint-report.sarif`. The Copilot agents
+call the same thing through the `o2j_lint_spec` MCP tool. `.spectral.yaml` at the root points
+the Spectral VS Code extension at the same ruleset, so you see the house rules as you type.
+
+The house rules live in two places: in Python for the gate, and in the Spectral ruleset for
+editors. `o2j.lint.SPECTRAL_EQUIVALENTS` maps one to the other, and `tests/unit/test_lint.py`
+fails if a rule is added to one side only.
+
+### Pre-commit and CI
+
+```bash
+pre-commit install            # once, after pip install -e ".[dev]"
+pre-commit run --all-files    # what CI runs
+```
+
+`.pre-commit-config.yaml` runs yamllint (`.yamllint.yaml`), actionlint, markdownlint
+(`.markdownlint-cli2.yaml`), ruff, mypy, `o2j skills check`, and `o2j run --to validate` when
+a spec in `openapi/` changes. The **O2J Lint** workflow runs the same hooks, then `o2j lint`,
+and uploads the Spectral findings to code scanning. **O2J Convert** checks pull requests for
+breaking changes against the base branch's `openapi/`.
+
+### Sonar
+
+Set `quality.sonar.enabled: true` and `project_key`, plus `host_url` (or `SONAR_HOST_URL`;
+the default is SonarCloud) and, for SonarCloud, `organization`. Export `SONAR_TOKEN`; the token
+is never read from `o2j.yaml`. `o2j quality` then runs the Sonar Maven plugin against the last
+build and fails if the server's quality gate fails. Without a token or project key it reports
+`unavailable` rather than passing. `o2j run` runs the coverage build before quality, so Sonar
+sees the JaCoCo report.
+
 ## What makes the coverage requirement real
 
 `o2j plan` derives a `requiredTests` list per operation from its shape — a `POST` returning
 201 with an `Idempotency-Key` header gets `slice:201-location-header` and
-`unit:idempotent-replay-single-side-effect`; a paginated `GET` gets five boundary cases. The
+`slice:idempotent-replay`; a paginated `GET` gets five boundary cases. The
 `test-author` agent is told which cases must exist, each test method claims one for its
 operation with a `// o2j:<operationId>:<case>` marker, and `o2j verify --mode contract` checks
 that every case is claimed by a test that ran and passed in the Surefire/Failsafe reports - a
@@ -430,7 +534,7 @@ in [RESULTS.md](tests/trigger-evals/RESULTS.md).
 | Agent Skills (14) | `skills/` → mirrored to `.github/skills/` |
 | Custom agents (8) | `.github/agents/*.agent.md` |
 | Prompt files (6) | `.github/prompts/*.prompt.md` |
-| MCP server (11 tools) | `.vscode/mcp.json` → `python -I -m o2j.mcp_server` |
+| MCP server (12 tools) | `.vscode/mcp.json` → `python -I -m o2j.mcp_server` |
 
 Agents: `openapi-to-spring` (orchestrator), `yaml-validator`, `spec-normalizer`,
 `api-generator`, `service-implementer`, `test-author`, `quality-reviewer`,

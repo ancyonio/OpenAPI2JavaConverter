@@ -83,6 +83,7 @@ class TestDerivation:
             "o2j:createOrder:slice:malformed-json-400",
             "o2j:createOrder:slice:unknown-enum-value-400",
             "o2j:createOrder:slice:missing-required-param-400",
+            "o2j:createOrder:slice:idempotent-replay",
         }
         assert "o2j:getOrder:slice:404-problem-details" in _markers(derived["getOrder"])
         assert "o2j:getOrder:slice:wrong-param-type-400" in _markers(derived["getOrder"])
@@ -273,3 +274,64 @@ class TestGeneratedTestAccounting:
         )
         assert "// o2j:createOrder:unit:happy-path" in skeleton
         assert '@Disabled("TODO(O2J): write createOrder unit:happy-path")' in skeleton
+
+
+class TestIdempotency:
+    """FR-I-08: an Idempotency-Key operation gets a generated filter and a replay contract case."""
+
+    def test_filter_is_generated_for_declaring_operations_only(
+        self, cfg: O2JConfig, work: WorkDir, tmp_path: Path
+    ) -> None:
+        _setup(cfg, work, "02-petstore-3.1")
+        result = generate(cfg, None, tmp_path, work, run_generator=False)
+        filter_java = f"src/main/java/{PKG}/config/IdempotencyFilter.java"
+        assert filter_java in result.managed
+        assert f"src/test/java/{PKG}/config/IdempotencyFilterTest.java" in result.managed
+        source = (tmp_path / filter_java).read_text(encoding="utf-8")
+        assert 'operation("POST", "/v1/orders") // createOrder' in source
+        assert "getOrder" not in source
+        assert "ttl: ${O2J_IDEMPOTENCY_TTL:PT24H}" in (
+            tmp_path / "src/main/resources/application.yml"
+        ).read_text(encoding="utf-8")
+
+    def test_no_filter_without_an_idempotency_header(
+        self, cfg: O2JConfig, work: WorkDir, tmp_path: Path
+    ) -> None:
+        _setup(cfg, work, "01-petstore-3.0")
+        generate(cfg, None, tmp_path, work, run_generator=False)
+        assert not (tmp_path / f"src/main/java/{PKG}/config/IdempotencyFilter.java").exists()
+        assert "idempotency:" not in (
+            tmp_path / "src/main/resources/application.yml"
+        ).read_text(encoding="utf-8")
+
+    def test_replay_case_sends_one_key_twice_and_expects_one_delegate_call(
+        self, cfg: O2JConfig, work: WorkDir
+    ) -> None:
+        generation_plan, doc = _setup(cfg, work, "02-petstore-3.1")
+        cases = contracttests.derive(generation_plan, doc)["createOrder"].cases
+        replay = next(c for c in cases if "o2j:createOrder:slice:idempotent-replay" in c.markers)
+        body = "\n".join(replay.lines)
+        keys = [line for line in replay.lines if '.header("Idempotency-Key"' in line]
+        assert len(keys) == 2 and keys[0] == keys[1]
+        assert 'header().string("Idempotent-Replayed", "true")' in body
+        assert 'assertThat(stub.calls("createOrder")).isEqualTo(1);' in body
+
+    def test_every_case_uses_its_own_valid_key(self, cfg: O2JConfig, work: WorkDir) -> None:
+        """A shared key would let one case's stored response replay into the next."""
+        generation_plan, doc = _setup(cfg, work, "02-petstore-3.1")
+        cases = contracttests.derive(generation_plan, doc)["createOrder"].cases
+        per_case = {
+            c.method_name: {line.strip() for line in c.lines if '.header("Idempotency-Key"' in line}
+            for c in cases
+        }
+        keys = [next(iter(v)) for v in per_case.values() if v]
+        assert len(keys) == len(set(keys)) >= 5
+        for key_line in keys:
+            value = key_line.split('", "', 1)[1].rstrip('")')
+            assert 8 <= len(value) <= 64  # the header's declared minLength / maxLength
+
+    def test_distinct_key_respects_uuid_format_and_pattern(self) -> None:
+        uuid_key = contracttests._distinct_key({"format": "uuid"}, "a", "fallback")
+        assert len(uuid_key) == 36 and uuid_key.count("-") == 4
+        assert contracttests._distinct_key({"pattern": "^[A-Z]+$"}, "a", "KEEP") == "KEEP"
+        assert contracttests._distinct_key({}, "a", "x") != contracttests._distinct_key({}, "b", "x")

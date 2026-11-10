@@ -283,18 +283,25 @@ def o2j_quality_report(tools: list[str] | None = None) -> dict[str, Any]:
 
 
 @mcp.tool()
-def o2j_verify(mode: str = "determinism", static: bool = False) -> dict[str, Any]:
+def o2j_verify(
+    mode: str = "determinism", static: bool = False, with_generator: bool = False
+) -> dict[str, Any]:
     """Check determinism, spec drift, or contract conformance.
 
-    Read-only. `determinism` normalizes twice and diffs; `drift` compares the recorded spec
+    Read-only. `determinism` runs normalize, plan and generate twice into scratch trees and
+    diffs every file (`with_generator=True` also runs openapi-generator through Maven in both);
+    `drift` compares the recorded spec
     hash with the current one; `contract` checks every required case is claimed, for its
     operation, by a test method that passed in the last `mvn verify`; `conformance` checks
-    every response the tests recorded against the spec (status, content type, schema).
+    every response the tests recorded against the spec (status, content type, schema), and
+    that each operation has a conforming 2xx from the real implementation, not the stub.
     `static=True` checks only that contract markers sit on test methods - useful while
     writing tests, not as a gate.
     """
     try:
-        result = verify_stage.verify(_cfg(), mode, WorkDir(), require_results=not static)
+        result = verify_stage.verify(
+            _cfg(), mode, WorkDir(), require_results=not static, with_generator=with_generator
+        )
         return {"ok": result.passed, **result.model_dump(by_alias=True)}
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}

@@ -31,6 +31,9 @@ import org.springframework.web.util.ContentCachingResponseWrapper;
  * <p>A request carrying {@value #SKIP_HEADER} is not recorded. Only probes that deliberately
  * reach an unimplemented operation use it (the generated "public endpoint is not refused"
  * security checks); anything else using it is hiding output from the conformance gate.
+ *
+ * <p>Exchanges answered by {@link O2jDelegateStub} are recorded with {@code "stubbed":true}.
+ * They still have to conform, but only an unstubbed 2xx shows the real service does.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -80,6 +83,8 @@ public class O2jConformanceRecorder extends OncePerRequestFilter {
             + field("contentType", response.getContentType())
             + ","
             + field("body", body)
+            + ",\"stubbed\":"
+            + Boolean.TRUE.equals(request.getAttribute(O2jDelegateStub.STUBBED_ATTRIBUTE))
             + "}\n";
     Files.createDirectories(OUT.getParent());
     Files.writeString(

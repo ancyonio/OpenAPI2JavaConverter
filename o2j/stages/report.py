@@ -20,6 +20,7 @@ from o2j.models import (
     GenerationPlan,
     Manifest,
     QualityReport,
+    VerifyReport,
 )
 from o2j.workdir import WorkDir
 
@@ -38,6 +39,7 @@ def report(
     plan = _try_read(work, "plan", "generation-plan.json", GenerationPlan)
     quality = _try_read(work, "gate", "quality-report.json", QualityReport)
     cov = _try_read(work, "gate", "coverage-report.json", CoverageReport)
+    determinism = _try_read(work, "gate", "verify-determinism.json", VerifyReport)
 
     generated_count = 0
     generated_root = project / cfg.generation.output_dir
@@ -78,7 +80,12 @@ def report(
             "mutationScore": cov.mutation_score if cov else None,
             "gates": {t.tool: t.status for t in quality.tools} if quality else {},
         },
-        determinism={"verified": None, "method": "double-normalize-diff"},
+        # Unmeasured stays null rather than claiming a result nobody produced.
+        determinism={
+            "verified": determinism.passed if determinism else None,
+            "method": "double-generate-diff",
+            "detail": determinism.detail if determinism else "not run",
+        },
     )
 
     work.write_json("report", "manifest.json", manifest)

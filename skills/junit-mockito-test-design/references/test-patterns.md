@@ -71,7 +71,6 @@ class OrderServiceTest {
     verifyNoInteractions(paymentClient, orderRepository);
   }
 
-  // o2j:createOrder:unit:idempotent-replay-single-side-effect
   @Test
   void create_whenIdempotencyKeyReplayed_returnsSameOrderAndSavesOnce() {
     var command = OrderFixtures.createCommand().withIdempotencyKey("key-1").build();

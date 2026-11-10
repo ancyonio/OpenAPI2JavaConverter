@@ -249,3 +249,68 @@ class TestResponseSchemaNeedsConformingOutput:
         assert not report.passed
         assert any(d.startswith("createPet:contract:response-schema") for d in report.differences)
 
+
+class TestConformanceNeedsTheRealService:
+    """A stub's 2xx proves the contract layer; only the real service's output proves the rest."""
+
+    def test_stub_only_exchanges_do_not_satisfy_the_gate(
+        self, cfg: O2JConfig, work: WorkDir, project: Path, petstore: GenerationPlan
+    ) -> None:
+        _record(
+            project,
+            [
+                {"method": "GET", "path": "/v1/pets", "status": 200, "stubbed": True,
+                 "contentType": "application/json", "body": json.dumps([PET])},
+                {"method": "POST", "path": "/v1/pets", "status": 201, "stubbed": True,
+                 "contentType": "application/json", "body": json.dumps(PET)},
+            ],
+        )
+        report = verify(cfg, "conformance", work, root=project)
+        assert not report.passed
+        assert sorted(report.differences) == [
+            "createPet: only stubbed responses recorded",
+            "listPets: only stubbed responses recorded",
+        ]
+
+        _java(project, "AllTest", _all_markers_test(petstore))
+        _report(project, "AllTest", {"covers": "passed"})
+        contract = verify(cfg, "contract", work, root=project)
+        assert any(
+            d.startswith("createPet:contract:response-schema: only stubbed responses recorded")
+            for d in contract.differences
+        )
+
+    def test_real_exchange_alongside_stubbed_ones_passes(
+        self, cfg: O2JConfig, work: WorkDir, project: Path, petstore: GenerationPlan
+    ) -> None:
+        _record(
+            project,
+            [
+                {"method": "GET", "path": "/v1/pets", "status": 200, "stubbed": True,
+                 "contentType": "application/json", "body": json.dumps([PET])},
+                {"method": "GET", "path": "/v1/pets", "status": 200, "stubbed": False,
+                 "contentType": "application/json", "body": json.dumps([PET])},
+                {"method": "POST", "path": "/v1/pets", "status": 201,
+                 "contentType": "application/json", "body": json.dumps(PET)},
+            ],
+        )
+        assert verify(cfg, "conformance", work, root=project).passed
+
+    def test_empty_body_where_a_schema_is_declared_is_a_violation(
+        self, cfg: O2JConfig, work: WorkDir, project: Path, petstore: GenerationPlan
+    ) -> None:
+        _record(
+            project,
+            [
+                {"method": "GET", "path": "/v1/pets", "status": 200,
+                 "contentType": "application/json", "body": json.dumps([PET])},
+                {"method": "POST", "path": "/v1/pets", "status": 201,
+                 "contentType": None, "body": ""},
+            ],
+        )
+        report = verify(cfg, "conformance", work, root=project)
+        assert not report.passed
+        assert any(
+            "empty body, but the response declares a schema for application/json" in d
+            for d in report.differences
+        )

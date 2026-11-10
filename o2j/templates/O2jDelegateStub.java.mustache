@@ -12,6 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 {{#use_jackson_3}}import tools.jackson.databind.ObjectMapper;
 {{/use_jackson_3}}{{^use_jackson_3}}import com.fasterxml.jackson.databind.ObjectMapper;
 {{/use_jackson_3}}
@@ -25,8 +27,15 @@ import org.springframework.http.ResponseEntity;
  * method's parameter list, which openapi-generator orders by its own rules. A stubbed body is
  * given as JSON and deserialized into the method's real return type, so the response the test
  * sees went through the generated DTO and Jackson exactly as production output does.
+ *
+ * <p>Every request it answers is marked with {@value #STUBBED_ATTRIBUTE}, so {@link
+ * O2jConformanceRecorder} can tell a stubbed response from one the real service produced. Only
+ * the latter proves the implementation honours the contract.
  */
 public final class O2jDelegateStub {
+
+  /** Request attribute set on every request this stub answers. */
+  public static final String STUBBED_ATTRIBUTE = "o2j.stubbed";
 
   private record Behaviour(int status, String json, RuntimeException failure, long delayMillis) {}
 
@@ -85,6 +94,10 @@ public final class O2jDelegateStub {
       return Optional.empty();
     }
     calls.add(method.getName());
+    RequestAttributes request = RequestContextHolder.getRequestAttributes();
+    if (request != null) {
+      request.setAttribute(STUBBED_ATTRIBUTE, Boolean.TRUE, RequestAttributes.SCOPE_REQUEST);
+    }
     Behaviour behaviour = behaviours.get(method.getName());
     if (behaviour == null) {
       return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);

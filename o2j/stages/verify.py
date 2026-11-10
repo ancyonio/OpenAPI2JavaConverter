@@ -3,7 +3,8 @@
 These three checks are what make "regenerate from the spec" a safe operation rather than a
 hopeful one:
 
-* **determinism** - the same input must always produce the same bytes. Without this the
+* **determinism** - the same input must always produce the same bytes. Two complete runs
+  (normalize, plan, generate) into separate trees are diffed file by file. Without this the
   generated tree cannot be trusted as build output and every regeneration is a diff review.
 * **drift** - the code on disk must match the spec hash recorded in ``o2j.lock.json``.
 * **contract** - every ``requiredTests`` entry in the plan must be claimed, for its own
@@ -24,7 +25,9 @@ from o2j import conformance
 from o2j.config import O2JConfig
 from o2j.models import GenerationPlan, VerifyReport
 from o2j.specdoc import load_spec
+from o2j.stages.generate import generate
 from o2j.stages.normalize import normalize
+from o2j.stages.plan import plan as plan_stage
 from o2j.testmarkers import read_results, scan
 from o2j.workdir import WorkDir
 
@@ -40,12 +43,16 @@ def verify(
     work: WorkDir | None = None,
     root: str | Path | None = None,
     require_results: bool = True,
+    with_generator: bool = False,
 ) -> VerifyReport:
+    """Run one verification. ``with_generator`` (determinism only) also runs openapi-generator
+    through Maven in each of the two trees, so the generated DTOs and interfaces are compared
+    as well as the files o2j renders itself."""
     work = work or WorkDir()
     project = Path(root) if root else cfg.service_dir
 
     if mode == "determinism":
-        return _verify_determinism(cfg, work)
+        return _verify_determinism(cfg, work, with_generator)
     if mode == "drift":
         return _verify_drift(cfg, work, project)
     if mode == "contract":
@@ -57,8 +64,16 @@ def verify(
     )
 
 
-def _verify_determinism(cfg: O2JConfig, work: WorkDir) -> VerifyReport:
-    """Normalize twice into separate directories and compare the canonical output."""
+def _verify_determinism(
+    cfg: O2JConfig, work: WorkDir, with_generator: bool = False
+) -> VerifyReport:
+    """Run the whole chain twice into separate trees and compare them byte for byte.
+
+    Each run normalizes, plans and generates from scratch: the canonical spec, the POM, every
+    managed and scaffolded file, the derived contract tests and - with ``with_generator`` -
+    the DTOs and API interfaces openapi-generator writes. Comparing only the canonical spec
+    would miss a template that iterates a set, or a timestamp in a rendered file.
+    """
     source = work.path("ingest", "spec.raw.yaml", create=False)
     if not source.is_file():
         source = cfg.default_spec()
@@ -67,34 +82,68 @@ def _verify_determinism(cfg: O2JConfig, work: WorkDir) -> VerifyReport:
             mode="determinism", passed=False, detail=f"no spec to verify at {source}"
         )
 
-    hashes: list[str] = []
-    texts: list[str] = []
+    method = "double-generate-diff" + ("+openapi-generator" if with_generator else "")
+    trees: list[dict[str, bytes]] = []
+    canonical_hash = ""
     for _ in range(2):
         with tempfile.TemporaryDirectory(prefix="o2j-determinism-") as tmp:
-            scratch = WorkDir(tmp)
-            result = normalize(cfg, spec_path=source, work=scratch)
-            hashes.append(result.canonical_hash)
-            texts.append(
-                Path(result.canonical_path).read_text(encoding="utf-8")
-            )
+            scratch = WorkDir(Path(tmp) / "work")
+            normalized = normalize(cfg, spec_path=source, work=scratch)
+            canonical_hash = normalized.canonical_hash
+            planned = plan_stage(cfg, work=scratch)
+            scratch.write_json("plan", "generation-plan.json", planned)
+            service = Path(tmp) / "service"
+            generate(cfg, planned, service, scratch, run_generator=with_generator)
+            tree = _tree(service, cfg.generation.output_dir)
+            tree["<canonical spec>"] = Path(normalized.canonical_path).read_bytes()
+            trees.append(tree)
 
-    if hashes[0] == hashes[1]:
+    first, second = trees
+    changed = sorted(p for p in first.keys() | second.keys() if first.get(p) != second.get(p))
+    if not changed:
         return VerifyReport(
             mode="determinism",
             passed=True,
-            detail=f"two normalization runs agree ({hashes[0]})",
+            detail=(
+                f"two generation runs agree on all {len(first)} file(s) "
+                f"({method}; spec {canonical_hash})"
+            ),
         )
 
-    differences = _first_differences(texts[0], texts[1])
+    differences = [f"differs: {p}" for p in changed[:20]]
+    path = changed[0]
+    if path in first and path in second:
+        differences += _first_differences(
+            first[path].decode("utf-8", "replace"), second[path].decode("utf-8", "replace")
+        )
     return VerifyReport(
         mode="determinism",
         passed=False,
         detail=(
-            "normalization is not reproducible. Usual causes: a generation timestamp, "
-            "unordered map iteration, or an ordinal inline-schema name."
+            f"generation is not reproducible: {len(changed)} file(s) differ ({method}). "
+            "Usual causes: a generation timestamp, unordered map iteration, or an ordinal "
+            "inline-schema name."
         ),
         differences=differences,
     )
+
+
+def _tree(root: Path, generated_dir: str) -> dict[str, bytes]:
+    """Every file under ``root``, keyed by POSIX relative path.
+
+    Of ``target/`` only the generator's output is kept: the rest is Maven bookkeeping, not
+    generated code.
+    """
+    generated = (root / generated_dir).resolve()
+    out: dict[str, bytes] = {}
+    for file in sorted(root.rglob("*")):
+        if not file.is_file():
+            continue
+        relative = file.relative_to(root)
+        if relative.parts[0] == "target" and generated not in file.resolve().parents:
+            continue
+        out[relative.as_posix()] = file.read_bytes()
+    return out
 
 
 def _first_differences(left: str, right: str, limit: int = 10) -> list[str]:
@@ -172,14 +221,22 @@ def _canonical_spec(work: WorkDir, project: Path) -> dict[str, Any] | None:
     return None
 
 
+STUB_ONLY = "only stubbed responses recorded"
+
+
 def _schema_problem(result: conformance.ConformanceResult, operation_id: str) -> str | None:
     if not result.found:
         return "no recorded exchanges (target/o2j-conformance); the recorder did not run"
     stats = result.by_operation.get(operation_id)
-    if stats is None or stats.conforming_success == 0:
-        return "no recorded 2xx response conforms to the spec"
-    if stats.violations:
+    if stats is not None and stats.violations:
         return f"recorded responses violate the spec: {stats.violations[0]}"
+    if stats is None or stats.conforming_success == 0:
+        if stats is not None and stats.stubbed_success:
+            return (
+                f"{STUB_ONLY}: no 2xx from the real implementation was checked against the "
+                "spec; add a test that drives the actual delegate and service"
+            )
+        return "no recorded 2xx response conforms to the spec"
     return None
 
 
@@ -204,6 +261,12 @@ def _verify_conformance(work: WorkDir, project: Path) -> VerifyReport:
     untested = sorted(
         op.operation_id for op in plan.operations if op.operation_id not in result.by_operation
     )
+    # A stub's 2xx proves the contract layer, not the service; the operation needs a real one.
+    stub_only = sorted(
+        op_id
+        for op_id, stats in result.by_operation.items()
+        if stats.conforming_success == 0 and stats.stubbed_success > 0
+    )
     violations = result.violations
     summary = (
         f"{result.checked} exchange(s) checked against the spec, {result.ignored} outside it; "
@@ -211,11 +274,17 @@ def _verify_conformance(work: WorkDir, project: Path) -> VerifyReport:
     )
     if untested:
         summary += f"; no exchange recorded for {', '.join(untested)}"
+    if stub_only:
+        summary += f"; {STUB_ONLY} for {', '.join(stub_only)}"
     return VerifyReport(
         mode="conformance",
-        passed=not violations and not untested,
+        passed=not violations and not untested and not stub_only,
         detail=summary,
-        differences=(violations + [f"{o}: no exchange recorded" for o in untested])[:50],
+        differences=(
+            violations
+            + [f"{o}: no exchange recorded" for o in untested]
+            + [f"{o}: {STUB_ONLY}" for o in stub_only]
+        )[:50],
     )
 
 

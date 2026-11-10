@@ -16,8 +16,10 @@ layer: routing, binding, Bean Validation, Jackson, security and the error advice
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import uuid
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import quote
@@ -25,9 +27,10 @@ from urllib.parse import quote
 from o2j import security
 from o2j.models import GenerationPlan, PlannedOperation
 from o2j.samples import SampleError, Sampler
-from o2j.stages.plan import is_typed_param
+from o2j.stages.plan import IDEMPOTENCY_HEADER, is_typed_param
 
 JSON_TYPES = ("application/json", "application/problem+json")
+REPLAYED_HEADER = "Idempotent-Replayed"  # set by the generated IdempotencyFilter
 PAGE_SIZE_NAMES = ("size", "limit", "pageSize", "page_size", "perPage", "per_page")
 UNKNOWN_ENUM = "O2J_UNKNOWN_VALUE"
 NOT_A_NUMBER = "o2j-not-a-number"
@@ -93,10 +96,19 @@ def _derive_operation(
     required = set(op.required_tests)
     ident = security.java_identifier(op.operation_id)
     oid = op.operation_id
+    idempotency_key = next(
+        (p for p in params
+         if p["in"] == "header" and p["name"].lower() == IDEMPOTENCY_HEADER and "value" in p),
+        None,
+    )
 
     def add(case: str, suffix: str, lines: list[str], extra: list[str] | None = None) -> None:
         markers = [op.marker(c) for c in [case, *(extra or [])] if c in required]
         if markers:
+            if idempotency_key is not None:
+                # One key per case: the service's IdempotencyFilter would otherwise replay one
+                # case's stored response into the next.
+                lines = _with_distinct_key(lines, idempotency_key, f"{oid}:{suffix}")
             result.cases.append(ContractCase(f"{ident}_{suffix}", markers, lines))
 
     # Happy path: the declared status, the declared content type, exactly one delegate call.
@@ -117,6 +129,16 @@ def _derive_operation(
         lines.append(f"assertThat(stub.calls({_j(oid)})).isEqualTo(1);")
         add("slice:happy-path-status", "validRequest_returnsDeclaredStatus", lines,
             ["contract:response-schema"])
+
+        # Idempotency-Key: the same request twice reaches the delegate once and is replayed.
+        if idempotency_key is not None:
+            expect = [f"status().is({op.success_status})"]
+            lines = [_stub_respond(oid, op.success_status, stub_body)]
+            lines += _perform(request, expect)
+            lines += _perform(request, [*expect, f'header().string("{REPLAYED_HEADER}", "true")'])
+            lines.append(f"assertThat(stub.calls({_j(oid)})).isEqualTo(1);")
+            add("slice:idempotent-replay",
+                "sameIdempotencyKey_replaysWithoutSecondCall", lines)
 
     refused = 'jsonPath("$.status").value(400)'
 
@@ -403,6 +425,28 @@ def _perform(request: _Request, expectations: list[str]) -> list[str]:
     lines += [f"    .andExpect({e})" for e in expectations]
     lines[-1] += ";"
     return lines
+
+
+def _with_distinct_key(lines: list[str], param: dict[str, Any], seed: str) -> list[str]:
+    """Swap the sampled Idempotency-Key in ``lines`` for one unique to this test case."""
+    current = f".header({_j(param['name'])}, {_j(param['value'])})"
+    distinct = _distinct_key(param.get("schema", {}), seed, param["value"])
+    replacement = f".header({_j(param['name'])}, {_j(distinct)})"
+    return [line.replace(current, replacement) for line in lines]
+
+
+def _distinct_key(schema: dict[str, Any], seed: str, fallback: str) -> str:
+    """A deterministic key for ``seed`` that still satisfies the header's schema."""
+    digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
+    if schema.get("format") == "uuid":
+        return str(uuid.UUID(digest[:32]))
+    low = int(schema.get("minLength", 1))
+    high = int(schema.get("maxLength", 64))
+    candidate = ("o2j" + digest).ljust(low, "0")[: max(low, min(high, 40))]
+    pattern = schema.get("pattern")
+    if isinstance(pattern, str) and not re.search(pattern, candidate):
+        return fallback
+    return candidate
 
 
 def _problem_json() -> str:

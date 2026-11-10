@@ -91,6 +91,21 @@ EMS_MANAGED: tuple[tuple[str, str], ...] = (
     ),
 )
 
+# Generated only when an operation declares an Idempotency-Key header (FR-I-08). Managed, so
+# the set of idempotent operations always follows the spec.
+IDEMPOTENCY_MANAGED: tuple[tuple[str, str], ...] = (
+    ("IdempotencyStore.java.mustache", "src/main/java/{pkg_path}/config/IdempotencyStore.java"),
+    (
+        "InMemoryIdempotencyStore.java.mustache",
+        "src/main/java/{pkg_path}/config/InMemoryIdempotencyStore.java",
+    ),
+    ("IdempotencyFilter.java.mustache", "src/main/java/{pkg_path}/config/IdempotencyFilter.java"),
+    (
+        "IdempotencyFilterTest.java.mustache",
+        "src/test/java/{pkg_path}/config/IdempotencyFilterTest.java",
+    ),
+)
+
 SECURITY_CASES = {
     "slice:unauthenticated-401": "requires_authentication",
     "slice:wrong-scope-403": "requires_scopes",
@@ -215,6 +230,11 @@ def generate(
             conflicts,
             root,
         )
+
+    if context["idempotency_enabled"]:
+        for template_name, destination in IDEMPOTENCY_MANAGED:
+            target = root / destination.format(pkg_path=context["pkg_path"])
+            _write_managed(template_name, target, context, managed, root)
 
     command: list[str] = []
     files: list[str] = []
@@ -394,6 +414,28 @@ def _build_context(cfg: O2JConfig, plan: GenerationPlan) -> dict[str, Any]:
         "coverage_excludes": [{"pattern": p} for p in cfg.quality.coverage.exclude],
         **_security_context(plan),
         **_ems_context(plan),
+        **_idempotency_context(plan),
+    }
+
+
+def _idempotency_context(plan: GenerationPlan) -> dict[str, Any]:
+    ops = sorted(
+        (op for op in plan.operations if op.idempotent), key=lambda o: o.operation_id
+    )
+    entries = [
+        {
+            "operation_id": op.operation_id,
+            "method": op.method,
+            "pattern": security.full_path(plan.base_path, op.path),
+            "last": i == len(ops) - 1,
+        }
+        for i, op in enumerate(ops)
+    ]
+    return {
+        "idempotency_enabled": bool(ops),
+        "idempotent_operations": entries,
+        "idempotency_sample_method": entries[0]["method"] if entries else "",
+        "idempotency_sample_path": security.sample_path(entries[0]["pattern"]) if entries else "",
     }
 
 

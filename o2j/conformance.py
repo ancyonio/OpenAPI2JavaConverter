@@ -7,10 +7,15 @@ belongs to a spec operation this module checks:
 * the status is declared for the operation (exact, ``4XX``-style range, or ``default``);
 * a non-empty body has a content type the response declares;
 * the body is valid against that media type's schema (JSON Schema 2020-12, which is the
-  dialect of the canonical 3.1 document, with formats checked).
+  dialect of the canonical 3.1 document, with formats checked);
+* a response that declares a body schema actually returned a body.
 
 This is what turns "the tests pass" into "what the service actually returned matches the
 contract". Line coverage cannot see a renamed JSON property or an undeclared 500; this can.
+
+Exchanges answered by ``O2jDelegateStub`` carry ``"stubbed": true``. They prove the contract
+layer (routing, binding, Jackson, the error advice) but not the service, so a conforming 2xx
+counts for an operation only when the real implementation produced it.
 """
 
 from __future__ import annotations
@@ -29,7 +34,8 @@ EXCHANGES = Path("target") / "o2j-conformance" / "exchanges.jsonl"
 @dataclass
 class OperationConformance:
     exchanges: int = 0
-    conforming_success: int = 0  # 2xx exchanges that passed every check
+    conforming_success: int = 0  # 2xx from the real implementation that passed every check
+    stubbed_success: int = 0  # 2xx from O2jDelegateStub that passed every check
     violations: list[str] = field(default_factory=list)
 
 
@@ -84,7 +90,10 @@ def check(project: Path, spec: dict[str, Any], base_path: str) -> ConformanceRes
         status = exchange.get("status")
         stats.violations += [f"{where} -> {status}: {p} (exchange {number})" for p in problems]
         if not problems and isinstance(status, int) and 200 <= status < 300:
-            stats.conforming_success += 1
+            if exchange.get("stubbed") is True:
+                stats.stubbed_success += 1
+            else:
+                stats.conforming_success += 1
     return result
 
 
@@ -137,11 +146,16 @@ def _check_exchange(
         return [f"status {status} is not declared (declared: {declared})"]
     response = sampler.resolve(response)
 
+    content = response.get("content") or {}
     body = exchange.get("body") or ""
     if not body.strip():
+        # A declared body schema is a promise to return one. HEAD never carries a body.
+        declared = sorted(m for m, media in content.items()
+                          if isinstance(media, dict) and isinstance(media.get("schema"), dict))
+        if declared and route.method != "HEAD":
+            return [f"empty body, but the response declares a schema for {', '.join(declared)}"]
         return []
 
-    content = response.get("content") or {}
     if not content:
         return ["a body was returned but the response declares no content"]
     media = _media_type(exchange.get("contentType"))

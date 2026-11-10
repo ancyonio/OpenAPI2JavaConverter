@@ -29,7 +29,10 @@ that belongs to `service-implementer`.
 ## Procedure
 
 1. Call `o2j_validate_spec`. Do not lint by eye and do not run Spectral directly — the tool
-   carries this repository's ruleset and the semantic checks a stock linter lacks.
+   carries this repository's ruleset and the semantic checks a stock linter lacks. It also
+   checks the official OpenAPI schema (`O2J-V-003`) and, given a `baseline` (the released
+   spec), breaking changes (`O2J-V-011`). For documentation hygiene beyond the gate, call
+   `o2j_lint_spec`; its findings are advisory.
 2. Group findings by root cause, not by line.
 3. For any finding you do not fully understand, call `o2j_explain_finding` before acting. It
    returns the rule's rationale, a before/after example, and whether it is auto-fixable.

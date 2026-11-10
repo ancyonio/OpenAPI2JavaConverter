@@ -50,7 +50,7 @@ doing work before validation runs.
 
 | Feature | Case | Layer |
 |---|---|---|
-| `Idempotency-Key` header | `idempotent-replay-single-side-effect` | unit |
+| `Idempotency-Key` header | `idempotent-replay` | slice |
 | authenticated | `unauthenticated-401`, `wrong-scope-403` | slice |
 | paginated | `pagination-first-page`, `pagination-last-page`, `pagination-empty`, `pagination-beyond-end`, `invalid-page-size-400` | slice |
 | mutates state | `repository-interaction-captured` | unit |
@@ -122,7 +122,7 @@ slice:400-problem-details
 slice:malformed-json-400
 slice:201-location-header
 unit:conflict-409
-unit:idempotent-replay-single-side-effect
+slice:idempotent-replay
 slice:unauthenticated-401
 slice:wrong-scope-403
 unit:repository-interaction-captured

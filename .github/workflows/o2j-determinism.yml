@@ -41,9 +41,22 @@ jobs:
         run: python -I -m pytest -q
 
       - name: Determinism across every corpus fixture
+        # Normalize, plan and generate twice per fixture and diff every rendered file.
         run: |
           for fixture in 00-minimal 01-petstore-3.0 02-petstore-3.1 03-swagger-2.0; do
             echo "--- $fixture"
             python -I -m o2j ingest "tests/corpus/$fixture/spec.yaml"
             python -I -m o2j verify --mode determinism
           done
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Determinism including openapi-generator output
+        # The same double run, with the DTOs and API interfaces openapi-generator writes.
+        run: |
+          python -I -m o2j ingest tests/corpus/02-petstore-3.1/spec.yaml
+          python -I -m o2j verify --mode determinism --with-generator

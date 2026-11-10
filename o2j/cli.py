@@ -402,19 +402,29 @@ def verify(
             help="contract: check markers sit on test methods, without requiring test results.",
         ),
     ] = False,
+    with_generator: Annotated[
+        bool,
+        typer.Option(
+            "--with-generator",
+            help="determinism: also run openapi-generator (Maven) in both trees and compare "
+            "the generated DTOs and interfaces.",
+        ),
+    ] = False,
     as_json: JsonOpt = False,
 ) -> None:
     """S7 - determinism, spec drift, or contract conformance."""
     cfg = _load(config)
+    work = WorkDir(work_dir)
     try:
         result = verify_stage.verify(
-            cfg, mode, WorkDir(work_dir), require_results=not static
+            cfg, mode, work, require_results=not static, with_generator=with_generator
         )
     except ValueError as exc:
         _err(f"error: {exc}")
         raise typer.Exit(int(ExitCode.USAGE)) from exc
     except O2JError as exc:
         _fail(exc)
+    work.write_json("gate", f"verify-{mode}.json", result)
 
     _err(f"{mode}: {'passed' if result.passed else 'FAILED'} - {result.detail}")
     for difference in result.differences:
@@ -685,8 +695,11 @@ def _run_one(
             )
 
             determinism = verify_stage.verify(cfg, "determinism", work)
+            work.write_json("gate", "verify-determinism.json", determinism)
             _err(f"[S4] determinism {'passed' if determinism.passed else 'FAILED'}")
             if not determinism.passed:
+                for difference in determinism.differences[:10]:
+                    _err(f"     {difference}")
                 return int(ExitCode.DRIFT_FAILED)
 
         if "gate" in selected:
@@ -697,6 +710,8 @@ def _run_one(
             work.write_json("gate", "quality-report.json", quality_report)
             contract = verify_stage.verify(cfg, "contract", work)
             conforms = verify_stage.verify(cfg, "conformance", work)
+            work.write_json("gate", "verify-contract.json", contract)
+            work.write_json("gate", "verify-conformance.json", conforms)
 
             def verdict(ok: bool) -> str:
                 return "passed" if ok else "FAILED"

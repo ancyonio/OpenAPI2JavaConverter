@@ -62,6 +62,11 @@ def rules(plan: GenerationPlan) -> list[SecurityRule]:
     return sorted(out, key=lambda r: (r.pattern.count("{"), r.pattern, r.method))
 
 
+def full_path(base_path: str, path: str) -> str:
+    """The request path Spring matches: the server base path joined to the spec path."""
+    return _pattern(base_path, path)
+
+
 def _pattern(base_path: str, path: str) -> str:
     return (base_path.rstrip("/") + "/" + path.lstrip("/")) if base_path else path
 

@@ -61,6 +61,12 @@ logging:
 o2j:
   spec-hash: {{spec_hash}}
   operations: {{operation_count}}
+{{#idempotency_enabled}}
+  idempotency:
+    # How long a completed Idempotency-Key is replayed (config.IdempotencyFilter). The default
+    # store is in memory: with more than one replica, declare a shared IdempotencyStore bean.
+    ttl: ${O2J_IDEMPOTENCY_TTL:PT24H}
+{{/idempotency_enabled}}
 {{#ems_enabled}}
   ems:
     # The TIBCO EMS bridge (EmsBridge). Enable it where the legacy request queues must keep

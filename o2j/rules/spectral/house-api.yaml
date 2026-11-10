@@ -72,6 +72,9 @@ rules:
       Inline object schemas generate ordinal class names that renumber when the document is
       edited. Define them in components.schemas and $ref them.
     given: $.paths[*][put,post,patch].requestBody.content[*].schema
+    # Spectral resolves $refs before applying rules by default, which would make every
+    # referenced schema look inline. Inspect the document as written.
+    resolved: false
     severity: error
     then:
       field: $ref
@@ -79,7 +82,9 @@ rules:
 
   o2j-collection-pagination:
     description: Collection GETs must expose page/size or cursor parameters.
-    given: $.paths[*].get
+    # A collection path ends in a plain segment, not a path parameter - the same test
+    # o2j/rules/naming.py applies, so `GET /orders/{orderId}` is not flagged.
+    given: $.paths[?(!@property.match(/\}$/))].get
     severity: warn
     then:
       function: schema

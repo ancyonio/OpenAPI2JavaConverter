@@ -204,7 +204,7 @@ def derive_required_tests(
         tests.append("unit:conflict-409")
 
     if op.idempotent:
-        tests.append("unit:idempotent-replay-single-side-effect")
+        tests.append("slice:idempotent-replay")
 
     # Only cases the generated service can actually exhibit: an operation that also allows
     # anonymous access cannot answer 401, and one that needs no scope cannot answer 403.

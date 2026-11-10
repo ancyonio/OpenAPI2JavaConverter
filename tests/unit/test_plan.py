@@ -78,7 +78,7 @@ class TestRequiredTests:
         create = next(o for o in order_plan.operations if o.operation_id == "createOrder")
         assert "slice:201-location-header" in create.required_tests
         assert "unit:conflict-409" in create.required_tests
-        assert "unit:idempotent-replay-single-side-effect" in create.required_tests
+        assert "slice:idempotent-replay" in create.required_tests
 
     def test_request_body_requires_validation_cases(self, order_plan) -> None:
         create = next(o for o in order_plan.operations if o.operation_id == "createOrder")

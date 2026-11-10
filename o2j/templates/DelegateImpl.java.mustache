@@ -44,8 +44,9 @@ public class {{delegate}} implements {{api_interface}}Delegate {
   //   2. call exactly one {{service}} method
   //   3. map the result back and return ResponseEntity.status({{success_status}})
   //   Do not catch business errors here - throw a DomainException and let the advice map it.
-{{#idempotent}}  //   This operation declares Idempotency-Key: a repeated key must return the same
-  //   response and cause exactly one side effect.
+{{#idempotent}}  //   This operation declares Idempotency-Key. config.IdempotencyFilter replays a repeated
+  //   key without calling this method again, so keep the whole side effect inside the one
+  //   service call here: it then happens exactly once per key.
 {{/idempotent}}{{#paginated}}  //   This operation is paginated: accept Pageable and return a page envelope.
 {{/paginated}}{{/operations}}
 }

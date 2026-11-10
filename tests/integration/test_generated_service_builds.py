@@ -38,7 +38,7 @@ from o2j.stages.generate import generate
 from o2j.stages.ingest import ingest
 from o2j.stages.normalize import normalize
 from o2j.stages.plan import plan
-from o2j.stages.verify import verify
+from o2j.stages.verify import STUB_ONLY, verify
 from o2j.workdir import WorkDir
 from tests.conftest import REPO_ROOT, spec
 
@@ -154,14 +154,21 @@ def test_generated_service_builds_and_security_contract_holds(
     )
     assert build.returncode == 0, "\n".join(build.stdout.splitlines()[-60:])
 
-    # Every response the tests produced must match the spec.
+    # Every response the tests produced must match the spec. On a scaffold every 2xx comes from
+    # O2jDelegateStub, so "only stubbed responses recorded" is the one expected difference: it
+    # clears once real delegates and services are written.
     conformance = verify(cfg, "conformance", work, root=tmp_path)
-    assert conformance.passed, conformance.differences
+    violations = [d for d in conformance.differences if not d.endswith(STUB_ONLY)]
+    assert not violations, violations
+    assert conformance.differences, "a scaffold has no real implementation to conform"
 
     # Everything o2j generated must pass. What is left is exactly the business cases o2j
-    # scaffolds as @Disabled skeletons, which a person (or agent) still has to write.
+    # scaffolds as @Disabled skeletons, which a person (or agent) still has to write, and the
+    # response-schema case, which needs the real service's output.
     contract = verify(cfg, "contract", work, root=tmp_path)
-    unmet = [d for d in contract.differences if not d.endswith(" skipped")]
+    unmet = [
+        d for d in contract.differences if not d.endswith(" skipped") and STUB_ONLY not in d
+    ]
     assert not unmet, unmet
     if fixture == "02-petstore-3.1":
         assert not [d for d in contract.differences if ":ems:" in d]
