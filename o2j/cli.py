@@ -19,6 +19,7 @@ import typer
 from pydantic import BaseModel
 
 from o2j import __version__
+from o2j import lint as lint_mod
 from o2j.config import O2JConfig, load_config, resolve_specs, service_slug
 from o2j.errors import ExitCode, O2JError
 from o2j.models import GenerationPlan
@@ -49,6 +50,14 @@ WorkOpt = Annotated[
     Path | None, typer.Option("--work-dir", "-w", help="Stage artifact directory.")
 ]
 JsonOpt = Annotated[bool, typer.Option("--json", help="Emit JSON on stdout.")]
+BaselineOpt = Annotated[
+    Path | None,
+    typer.Option(
+        "--baseline",
+        help="Previous spec (file), or folder of previous specs, to check for breaking "
+        "changes. Overrides validation.breaking_change_baseline.",
+    ),
+]
 
 
 def _err(message: str) -> None:
@@ -165,12 +174,13 @@ def validate(
     work_dir: WorkOpt = None,
     as_json: JsonOpt = False,
     sarif: Annotated[bool, typer.Option("--sarif", help="Also write a SARIF report.")] = True,
+    baseline: BaselineOpt = None,
 ) -> None:
-    """S1 - validate syntax, semantics and house API standards."""
+    """S1 - validate syntax, the OpenAPI schema, semantics, house standards, breaking changes."""
     cfg = _load(config)
     work = WorkDir(work_dir)
     try:
-        result = validate_stage.validate(cfg, spec, work)
+        result = validate_stage.validate(cfg, spec, work, baseline=baseline)
     except O2JError as exc:
         _fail(exc)
 
@@ -433,6 +443,66 @@ def report(
     _emit(result, as_json)
 
 
+@app.command()
+def lint(
+    spec: Annotated[
+        Path | None,
+        typer.Argument(help="A spec file or folder. Defaults to `openapi.input` (openapi/)."),
+    ] = None,
+    config: ConfigOpt = None,
+    work_dir: WorkOpt = None,
+    tool: Annotated[
+        str, typer.Option(help="auto | spectral | vacuum | npx (Spectral via npx).")
+    ] = "auto",
+    strict: Annotated[
+        bool,
+        typer.Option("--strict", help="Exit 3 on lint errors, and 2 if no linter can run."),
+    ] = False,
+    sarif: Annotated[bool, typer.Option("--sarif/--no-sarif", help="Write SARIF.")] = True,
+    as_json: JsonOpt = False,
+) -> None:
+    """Lint specs with Spectral or vacuum and the house ruleset. Advisory unless --strict."""
+    cfg = _load(config)
+    if tool not in ("auto", "spectral", "vacuum", "npx"):
+        _err("error: --tool must be auto, spectral, vacuum or npx")
+        raise typer.Exit(int(ExitCode.USAGE))
+    source = spec if spec is not None else cfg.input_path()
+    specs = resolve_specs(source)
+    if not specs:
+        _err(f"error: no *.yaml or *.yml specs at {source}")
+        raise typer.Exit(int(ExitCode.USAGE))
+
+    result = lint_mod.lint(cfg, specs, tool)  # type: ignore[arg-type]
+    work = WorkDir(work_dir)
+    work.write_json("validate", "lint-report.json", result)
+    if sarif:
+        payload = validate_stage.findings_to_sarif(
+            result.findings, str(source), tool_name=f"o2j-lint ({result.tool})"
+        )
+        work.write_text("validate", "lint-report.sarif", json.dumps(payload, indent=2))
+
+    for finding in result.findings:
+        where = finding.location.file if finding.location else ""
+        if finding.location and finding.location.line:
+            where += f":{finding.location.line}"
+        _err(f"{finding.severity:5} {finding.rule:32} {where}  {finding.message}")
+    s = result.summary
+    _err(
+        f"\n{result.tool}: {len(result.specs)} spec(s), {s.errors} error(s), "
+        f"{s.warnings} warning(s), {s.infos} info - ruleset {result.ruleset}"
+    )
+    if result.detail:
+        _err(f"note: {result.detail}")
+    _emit(result, as_json)
+
+    if result.status != "ok":
+        if strict:
+            raise typer.Exit(int(ExitCode.USAGE))
+        return
+    if strict and not result.gate.passed:
+        raise typer.Exit(int(ExitCode.VALIDATION_FAILED))
+
+
 STAGE_ORDER = ["ingest", "validate", "normalize", "plan", "generate", "gate", "report"]
 
 
@@ -459,6 +529,7 @@ def run(
     run_generator: Annotated[
         bool, typer.Option("--run-generator/--no-run-generator")
     ] = True,
+    baseline: BaselineOpt = None,
 ) -> None:
     """Run the pipeline from one stage to another, stopping at the first failed gate.
 
@@ -478,7 +549,7 @@ def run(
     source = spec if spec is not None else cfg.input_path()
     if not source.is_dir():
         # One spec: the service identity comes from o2j.yaml, as for the stage commands.
-        code = _run_one(cfg, spec, WorkDir(work_dir), selected, run_generator)
+        code = _run_one(cfg, spec, WorkDir(work_dir), selected, run_generator, baseline)
         if code:
             raise typer.Exit(code)
         _err(f"\npipeline complete -> {cfg.service_dir}")
@@ -510,7 +581,9 @@ def run(
             _err(f"[{slug}] ems mapping skipped: it applies to single-spec runs only")
             spec_cfg.ems.enabled = False
         _err(f"\n=== {path.name} -> {spec_cfg.service_dir}")
-        code = _run_one(spec_cfg, path, WorkDir(work_root / slug), selected, run_generator)
+        code = _run_one(
+            spec_cfg, path, WorkDir(work_root / slug), selected, run_generator, baseline
+        )
         outcomes.append((slug, code))
 
     _err("\nsummary")
@@ -524,7 +597,12 @@ def run(
 
 
 def _run_one(
-    cfg: O2JConfig, spec: Path | None, work: WorkDir, selected: list[str], run_generator: bool
+    cfg: O2JConfig,
+    spec: Path | None,
+    work: WorkDir,
+    selected: list[str],
+    run_generator: bool,
+    baseline: Path | None = None,
 ) -> int:
     """Run the selected stages for one spec; return its exit code (0 when every gate passes)."""
     try:
@@ -533,8 +611,15 @@ def _run_one(
             _err(f"[S0] ingest     {ingested.detected_version} ({ingested.size_bytes} bytes)")
 
         if "validate" in selected:
-            validation = validate_stage.validate(cfg, spec, work)
+            validation = validate_stage.validate(cfg, spec, work, baseline=baseline)
             work.write_json("validate", "validation-report.json", validation)
+            work.write_text(
+                "validate",
+                "validation-report.sarif",
+                json.dumps(
+                    validate_stage.to_sarif(validation, str(spec or cfg.openapi.input)), indent=2
+                ),
+            )
             _err(
                 f"[S1] validate   {validation.summary.errors} error(s), "
                 f"{validation.summary.warnings} warning(s)"
@@ -555,7 +640,7 @@ def _run_one(
             # gets its first full semantic and house-standard check (see stages/validate.py).
             if "validate" in selected:
                 canonical_check = validate_stage.validate(
-                    cfg, normalized.canonical_path, work
+                    cfg, normalized.canonical_path, work, check_breaking=False
                 )
                 work.write_json(
                     "validate", "validation-report.canonical.json", canonical_check
@@ -605,10 +690,11 @@ def _run_one(
                 return int(ExitCode.DRIFT_FAILED)
 
         if "gate" in selected:
-            quality_report = quality_stage.quality(cfg)
-            work.write_json("gate", "quality-report.json", quality_report)
+            # Coverage first: it runs the build, and Sonar (in quality) reads its reports.
             coverage_report = coverage_stage.coverage(cfg)
             work.write_json("gate", "coverage-report.json", coverage_report)
+            quality_report = quality_stage.quality(cfg)
+            work.write_json("gate", "quality-report.json", quality_report)
             contract = verify_stage.verify(cfg, "contract", work)
             conforms = verify_stage.verify(cfg, "conformance", work)
 

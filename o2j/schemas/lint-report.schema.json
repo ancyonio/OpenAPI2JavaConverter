@@ -1,0 +1,226 @@
+{
+  "$defs": {
+    "Finding": {
+      "additionalProperties": false,
+      "description": "One validation finding.\n\n``remediation`` and ``auto_fixable`` are not decoration: they are what lets the\nyaml-validator agent repair a spec rather than merely describe what is wrong with it.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "rule": {
+          "title": "Rule",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warn",
+            "info"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "pointer": {
+          "title": "Pointer",
+          "type": "string"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Location"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "remediation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remediation"
+        },
+        "autoFixable": {
+          "default": false,
+          "title": "Autofixable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "rule",
+        "severity",
+        "message",
+        "pointer"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "Gate": {
+      "additionalProperties": false,
+      "properties": {
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "failedOn": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failedon"
+        }
+      },
+      "required": [
+        "passed"
+      ],
+      "title": "Gate",
+      "type": "object"
+    },
+    "Location": {
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line"
+        },
+        "column": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "title": "Location",
+      "type": "object"
+    },
+    "ValidationSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "errors": {
+          "default": 0,
+          "title": "Errors",
+          "type": "integer"
+        },
+        "warnings": {
+          "default": 0,
+          "title": "Warnings",
+          "type": "integer"
+        },
+        "infos": {
+          "default": 0,
+          "title": "Infos",
+          "type": "integer"
+        },
+        "redactions": {
+          "default": 0,
+          "title": "Redactions",
+          "type": "integer"
+        }
+      },
+      "title": "ValidationSummary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "`o2j lint`: an external linter's findings (advisory unless run with --strict).",
+  "properties": {
+    "tool": {
+      "title": "Tool",
+      "type": "string"
+    },
+    "ruleset": {
+      "title": "Ruleset",
+      "type": "string"
+    },
+    "specs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Specs",
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "ok",
+        "unavailable"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "detail": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Detail"
+    },
+    "summary": {
+      "$ref": "#/$defs/ValidationSummary"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "gate": {
+      "$ref": "#/$defs/Gate"
+    }
+  },
+  "required": [
+    "tool",
+    "ruleset",
+    "status",
+    "summary",
+    "gate"
+  ],
+  "title": "LintReport",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://o2j.dev/schemas/lint-report.schema.json"
+}

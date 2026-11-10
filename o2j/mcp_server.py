@@ -15,9 +15,11 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any
 
-from o2j.config import load_config
+from o2j import lint as lint_mod
+from o2j.config import load_config, resolve_specs
 from o2j.errors import O2JError
 from o2j.models import GenerationPlan
 from o2j.rulebook import explain
@@ -63,8 +65,11 @@ def _error(exc: O2JError) -> dict[str, Any]:
 def o2j_validate_spec(
     spec_path: str | None = None,
     fail_on: str | None = None,
+    baseline: str | None = None,
 ) -> dict[str, Any]:
-    """Validate an OpenAPI spec: syntax, semantics, $ref resolution and house standards.
+    """Validate an OpenAPI spec: syntax, the official OpenAPI schema, semantics, $ref
+    resolution, house standards and - against `baseline` or the configured baseline -
+    breaking changes.
 
     Read-only. Returns a ValidationReport whose findings each carry a JSON Pointer, a
     remediation and an `autoFixable` flag.
@@ -74,9 +79,29 @@ def o2j_validate_spec(
         if fail_on:
             cfg.validation.fail_on = fail_on
         work = WorkDir()
-        result = validate_stage.validate(cfg, spec_path, work)
+        result = validate_stage.validate(cfg, spec_path, work, baseline=baseline)
         work.write_json("validate", "validation-report.json", result)
         return {"ok": True, **result.model_dump(by_alias=True)}
+    except O2JError as exc:
+        return _error(exc)
+
+
+@mcp.tool()
+def o2j_lint_spec(spec_path: str | None = None) -> dict[str, Any]:
+    """Advisory second opinion: Spectral (or vacuum) with the house ruleset.
+
+    Read-only. Use this instead of running `npx spectral lint` yourself; it applies the
+    configured ruleset and pinned Spectral version. `o2j_validate_spec` remains the gate.
+    """
+    try:
+        cfg = _cfg()
+        source = Path(spec_path) if spec_path else cfg.input_path()
+        specs = resolve_specs(source)
+        if not specs:
+            return {"ok": False, "error": f"no *.yaml or *.yml specs at {source}"}
+        result = lint_mod.lint(cfg, specs)
+        WorkDir().write_json("validate", "lint-report.json", result)
+        return {"ok": result.status == "ok", **result.model_dump(by_alias=True)}
     except O2JError as exc:
         return _error(exc)
 

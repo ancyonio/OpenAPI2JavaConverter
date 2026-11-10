@@ -56,10 +56,31 @@ jobs:
       - name: Preflight
         run: python -I -m o2j doctor
 
+      # On a pull request, the base branch's specs are the released contract: validation
+      # reports breaking changes against them (O2J-V-011). A spec new in this PR has no
+      # baseline and is not compared.
+      - name: Breaking-change baseline from the base branch
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          baseline="$RUNNER_TEMP/o2j-baseline"
+          mkdir -p "$baseline"
+          if [ -n "$(git ls-tree --name-only FETCH_HEAD openapi/)" ]; then
+            git archive FETCH_HEAD openapi | tar -x -C "$baseline"
+            echo "O2J_BASELINE=$baseline/openapi" >> "$GITHUB_ENV"
+          fi
+
       # Folder mode: every *.yaml / *.yml under openapi/ becomes its own service in
       # generated_Code/<spec-name>/, with stage artifacts in work/<spec-name>/.
       - name: S0-S4 Ingest, validate, normalize, plan, generate
-        run: python -I -m o2j run "${{ inputs.spec_path || 'openapi' }}" --to generate
+        env:
+          SPEC: ${{ inputs.spec_path || 'openapi' }}
+        run: |
+          args=()
+          if [ -n "${O2J_BASELINE:-}" ]; then args=(--baseline "$O2J_BASELINE"); fi
+          python -I -m o2j run "$SPEC" --to generate "${args[@]}"
 
       - name: Upload validation findings
         if: always()
@@ -69,11 +90,15 @@ jobs:
           category: o2j-openapi
 
       - name: S6-S7 Build, test and gate every service
-        run: python -I -m o2j run "${{ inputs.spec_path || 'openapi' }}" --from gate --to gate
+        env:
+          SPEC: ${{ inputs.spec_path || 'openapi' }}
+        run: python -I -m o2j run "$SPEC" --from gate --to gate
 
       - name: S8 Report
         if: always()
-        run: python -I -m o2j run "${{ inputs.spec_path || 'openapi' }}" --from report
+        env:
+          SPEC: ${{ inputs.spec_path || 'openapi' }}
+        run: python -I -m o2j run "$SPEC" --from report
 
       - name: Upload artifacts
         if: always()

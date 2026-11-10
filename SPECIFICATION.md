@@ -1,4 +1,5 @@
 # OpenAPI YAML → Java Spring Boot Conversion Factory
+
 ## Technical Specification for a GitHub Copilot–Based Solution
 
 | Field | Value |
@@ -2427,20 +2428,20 @@ Answers to Q-01 through Q-04 change the architecture; Q-05 onward change configu
 
 ## 20. Appendix B — References
 
-- OpenAPI Specification 3.2.0 — https://spec.openapis.org/oas/v3.2
-- OpenAPI 3.2.0 release announcement — https://www.openapis.org/
-- Swagger OpenAPI 3.2.0 support — https://swagger.io/blog/swagger-launches-support-for-openapi-3-2-0/
-- `swagger-parser` 3.2 support request — https://github.com/swagger-api/swagger-parser/issues/2248
-- OpenAPI Generator `spring` options — https://openapi-generator.tech/docs/generators/spring/
-- `openapi-generator-maven-plugin` on Maven Central — https://central.sonatype.com/artifact/org.openapitools/openapi-generator-maven-plugin
-- Copilot custom agents configuration — https://docs.github.com/en/copilot/reference/custom-agents-configuration
-- Creating Copilot custom agents — https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-custom-agents
-- Repository custom instructions — https://docs.github.com/en/copilot/how-tos/custom-instructions/adding-repository-custom-instructions-for-github-copilot
-- Oracle Java SE support roadmap — https://www.oracle.com/java/technologies/java-se-support-roadmap.html
-- RFC 9457 Problem Details for HTTP APIs — https://www.rfc-editor.org/rfc/rfc9457
-- Spectral rulesets — https://docs.stoplight.io/docs/spectral
-- ArchUnit — https://www.archunit.org/
-- PIT mutation testing — https://pitest.org/
+- OpenAPI Specification 3.2.0 — <https://spec.openapis.org/oas/v3.2>
+- OpenAPI 3.2.0 release announcement — <https://www.openapis.org/>
+- Swagger OpenAPI 3.2.0 support — <https://swagger.io/blog/swagger-launches-support-for-openapi-3-2-0/>
+- `swagger-parser` 3.2 support request — <https://github.com/swagger-api/swagger-parser/issues/2248>
+- OpenAPI Generator `spring` options — <https://openapi-generator.tech/docs/generators/spring/>
+- `openapi-generator-maven-plugin` on Maven Central — <https://central.sonatype.com/artifact/org.openapitools/openapi-generator-maven-plugin>
+- Copilot custom agents configuration — <https://docs.github.com/en/copilot/reference/custom-agents-configuration>
+- Creating Copilot custom agents — <https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-custom-agents>
+- Repository custom instructions — <https://docs.github.com/en/copilot/how-tos/custom-instructions/adding-repository-custom-instructions-for-github-copilot>
+- Oracle Java SE support roadmap — <https://www.oracle.com/java/technologies/java-se-support-roadmap.html>
+- RFC 9457 Problem Details for HTTP APIs — <https://www.rfc-editor.org/rfc/rfc9457>
+- Spectral rulesets — <https://docs.stoplight.io/docs/spectral>
+- ArchUnit — <https://www.archunit.org/>
+- PIT mutation testing — <https://pitest.org/>
 
 ---
 

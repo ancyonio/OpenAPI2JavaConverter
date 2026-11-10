@@ -102,6 +102,9 @@ class VersionsConfig(StrictModel):
     springdoc_boot_4: str = "3.0.3"
     owasp_dependency_check: str
     cyclonedx: str
+    # Optional so existing o2j.yaml files stay valid.
+    spectral_cli: str = "6.11.1"            # `o2j lint` via npx when no spectral binary exists
+    sonar_maven_plugin: str = "4.0.0.4121"  # `o2j quality` when quality.sonar.enabled
 
 
 class OpenApiConfig(StrictModel):
@@ -117,9 +120,15 @@ class OpenApiConfig(StrictModel):
 
 
 class ValidationConfig(StrictModel):
+    # Used by `o2j lint` (Spectral or vacuum) and by editors via .spectral.yaml. Relative to
+    # o2j.yaml; when absent there, the ruleset packaged with o2j is used.
     spectral_ruleset: str = "o2j/rules/spectral/house-api.yaml"
     fail_on: Literal["error", "warn"] = "error"
+    # The previously released spec(s) to check for breaking changes (O2J-V-011): a file, or a
+    # folder holding a file of the same name for each spec in `openapi.input`. null = off.
     breaking_change_baseline: str | None = None
+    # error | warn | null. null follows `service.profile`: error in production, warn otherwise.
+    breaking_change_severity: Literal["error", "warn"] | None = None
     require_security: bool = True
     require_pagination_on_collections: bool = True
     require_problem_details: bool = True
@@ -182,8 +191,12 @@ class StaticAnalysisConfig(StrictModel):
 
 
 class SonarConfig(StrictModel):
+    """SonarQube / SonarCloud analysis, run by `o2j quality`. The token comes from $SONAR_TOKEN."""
+
     enabled: bool = False
     project_key: str = ""
+    host_url: str = ""        # empty: $SONAR_HOST_URL, else https://sonarcloud.io
+    organization: str = ""    # SonarCloud only
 
 
 class QualityConfig(StrictModel):
@@ -256,6 +269,33 @@ class O2JConfig(StrictModel):
     def input_path(self) -> Path:
         """``openapi.input`` resolved against the project root (a file or a folder)."""
         return self.project_root / self.openapi.input
+
+    def baseline_for(
+        self, spec: str | Path | None, override: str | Path | None = None
+    ) -> Path | None:
+        """The previous version of ``spec`` to diff against, or None when there is none.
+
+        ``override`` (the --baseline option) wins over ``validation.breaking_change_baseline``.
+        A baseline file is used as is; a baseline folder is searched for a file with the same
+        name as the spec, so one folder can serve every spec in ``openapi/``. A spec that is new
+        has no baseline, which is not an error.
+        """
+        setting = override if override is not None else self.validation.breaking_change_baseline
+        if not setting:
+            return None
+        base = Path(setting)
+        if not base.is_absolute():
+            base = (Path.cwd() if override is not None else self.project_root) / base
+        if base.is_file():
+            return base
+        if base.is_dir():
+            name = Path(spec).name if spec is not None else None
+            if name is None:
+                specs = resolve_specs(self.input_path())
+                name = specs[0].name if len(specs) == 1 else None
+            if name is not None and (base / name).is_file():
+                return base / name
+        return None
 
     def default_spec(self) -> Path:
         """The one spec a single-spec command works on when it is given no path.

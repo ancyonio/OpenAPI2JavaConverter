@@ -58,6 +58,7 @@ def doctor(cfg: O2JConfig, check_versions: bool = False) -> DoctorReport:
         _check_java(cfg),
         _check_maven(),
         _check_node_spectral(),
+        _check_openapi_schema(),
         _check_gitleaks(),
         _check_target_tier(cfg),
         _check_spring_boot_eol(cfg),
@@ -132,20 +133,41 @@ def _check_maven() -> Check:
 
 
 def _check_node_spectral() -> Check:
-    """Spectral is optional: the house ruleset is also implemented in Python."""
+    """Spectral is optional: `o2j validate` implements the house rules in Python.
+
+    It is what `o2j lint` and editors (through .spectral.yaml) use, so say which way it runs.
+    """
     if shutil.which("spectral"):
-        return Check(name="spectral", status="ok", detail="spectral CLI available")
+        return Check(name="spectral", status="ok", detail="spectral CLI available for o2j lint")
+    if shutil.which("vacuum"):
+        return Check(name="spectral", status="ok", detail="vacuum available for o2j lint")
     if shutil.which("npx"):
         return Check(
             name="spectral",
             status="ok",
-            detail="npx available; spectral can run on demand",
+            detail="npx available; o2j lint runs Spectral through it (pinned version)",
         )
     return Check(
         name="spectral",
         status="warn",
-        detail="no Spectral CLI; house rules still run via the Python implementation",
-        remedy="install Node and @stoplight/spectral-cli for editor linting",
+        detail="no spectral, vacuum or npx: `o2j lint` cannot run (o2j validate is unaffected)",
+        remedy="install Node.js, or the vacuum binary, to use o2j lint",
+    )
+
+
+def _check_openapi_schema() -> Check:
+    """The official OpenAPI JSON Schemas behind validation's schema pass (O2J-V-003)."""
+    try:
+        import openapi_spec_validator  # noqa: F401
+    except ImportError:
+        return Check(
+            name="openapi-schema",
+            status="missing",
+            detail="openapi-spec-validator not installed; the OpenAPI schema check cannot run",
+            remedy="pip install -e .",
+        )
+    return Check(
+        name="openapi-schema", status="ok", detail="official OpenAPI JSON Schemas available"
     )
 
 

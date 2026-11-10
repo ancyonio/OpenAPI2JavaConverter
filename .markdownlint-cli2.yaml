@@ -1,0 +1,21 @@
+# markdownlint: structure of the documentation, agents, prompts and skills.
+# Style rules that fight the house writing style (long tables, prose lines, embedded files
+# in SPECIFICATION.md) are switched off; the rules kept catch broken structure.
+config:
+  default: true
+  MD013: false        # line length: tables and URLs
+  MD024:              # duplicate headings are fine in different sections
+    siblings_only: true
+  MD033: false        # inline HTML (e.g. <details>)
+  MD036: false        # emphasis used as a label ("**Contract and generation**")
+  MD040: false        # fenced code without a language (ASCII diagrams, trees)
+  MD041: false        # agent/prompt files start with front matter, not a heading
+  MD046: false        # code block style (embedded files in SPECIFICATION.md)
+  MD060: false        # table column alignment
+
+ignores:
+  - "tests/corpus/**"
+  - "tests/trigger-evals/runs/**"
+  - "work/**"
+  - "generated_Code/**"
+  - "**/*.egg-info/**"

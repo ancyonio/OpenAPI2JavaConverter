@@ -1,0 +1,8 @@
+# Spectral configuration for editors and ad-hoc runs from the repository root.
+#
+# The Spectral VS Code extension (stoplight.spectral) and `spectral lint` look for this file,
+# so specs under openapi/ are linted with the house ruleset as you type. CI and the pipeline
+# use `o2j lint`, which reads `validation.spectral_ruleset` from o2j.yaml; both point at the
+# same ruleset. The blocking gate is `o2j validate`, which implements these rules in Python.
+extends:
+  - ./o2j/rules/spectral/house-api.yaml

@@ -15,12 +15,14 @@ dependencies = [
   "pydantic>=2.10.0",
   "ruamel.yaml>=0.18.6",
   "jsonschema>=4.23.0",
+  "openapi-spec-validator>=0.7.1",  # official OpenAPI JSON Schemas (FR-V-03)
   "rich>=13.9.0",
 ]
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.2.0"]
 dev = [
+  "pre-commit>=4.0.0",
   "pytest>=8.3.0",
   "pytest-cov>=6.0.0",
   "ruff>=0.8.0",

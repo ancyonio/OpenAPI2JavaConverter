@@ -333,6 +333,7 @@
     },
     "SonarConfig": {
       "additionalProperties": false,
+      "description": "SonarQube / SonarCloud analysis, run by `o2j quality`. The token comes from $SONAR_TOKEN.",
       "properties": {
         "enabled": {
           "default": false,
@@ -342,6 +343,16 @@
         "project_key": {
           "default": "",
           "title": "Project Key",
+          "type": "string"
+        },
+        "host_url": {
+          "default": "",
+          "title": "Host Url",
+          "type": "string"
+        },
+        "organization": {
+          "default": "",
+          "title": "Organization",
           "type": "string"
         }
       },
@@ -458,6 +469,22 @@
           "default": null,
           "title": "Breaking Change Baseline"
         },
+        "breaking_change_severity": {
+          "anyOf": [
+            {
+              "enum": [
+                "error",
+                "warn"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Breaking Change Severity"
+        },
         "require_security": {
           "default": true,
           "title": "Require Security",
@@ -547,6 +574,16 @@
         },
         "cyclonedx": {
           "title": "Cyclonedx",
+          "type": "string"
+        },
+        "spectral_cli": {
+          "default": "6.11.1",
+          "title": "Spectral Cli",
+          "type": "string"
+        },
+        "sonar_maven_plugin": {
+          "default": "4.0.0.4121",
+          "title": "Sonar Maven Plugin",
           "type": "string"
         }
       },

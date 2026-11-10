@@ -1,0 +1,69 @@
+# Local lint gate. Install once:   pip install -e ".[dev]" && pre-commit install
+# Run on everything:               pre-commit run --all-files
+# CI runs the same hooks in .github/workflows/o2j-lint.yml, so a clean local run means a
+# clean CI run.
+#
+# Hook versions are pinned tags; `pre-commit autoupdate` refreshes them in one reviewed diff.
+default_install_hook_types: [pre-commit]
+exclude: ^(tests/corpus/|tests/trigger-evals/runs/|work/|generated_Code/[^/]+/target/)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        # Mustache templates are not YAML until rendered.
+        exclude: ^o2j/templates/
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [--strict, -c, .yamllint.yaml]
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.4
+    hooks:
+      - id: actionlint
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.17.1
+    hooks:
+      - id: markdownlint-cli2
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--no-fix]
+
+  # Hooks that need o2j itself run from the active environment (pip install -e ".[dev]").
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (o2j, strict)
+        entry: python -I -m mypy o2j
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: o2j-validate-specs
+        name: o2j validate (every spec in openapi/)
+        # Ingest + validate only: the OpenAPI schema, semantic and house rules, and breaking
+        # changes when validation.breaking_change_baseline is set. Writes only under work/.
+        entry: python -I -m o2j run --to validate
+        language: system
+        files: ^openapi/.*\.ya?ml$
+        pass_filenames: false
+
+      - id: o2j-skills-check
+        name: o2j skills check (mirrors in sync)
+        entry: python -I -m o2j skills check
+        language: system
+        files: ^(skills/|\.github/skills/)
+        pass_filenames: false

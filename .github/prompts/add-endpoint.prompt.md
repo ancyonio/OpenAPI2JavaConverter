@@ -11,6 +11,7 @@ Operation: `${input:method}` `${input:path}`
 Purpose: `${input:purpose}`
 
 Steps:
+
 1. Add the operation to the spec with a unique camelCase `operationId`, request and response
    schemas defined in `components.schemas` (never inline), the declared error responses
    (400, 500, plus 401/403 if authenticated), and pagination parameters if it returns a

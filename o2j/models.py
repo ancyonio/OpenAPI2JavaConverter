@@ -96,6 +96,48 @@ class ValidationReport(Artifact):
         )
 
 
+class LintReport(Artifact):
+    """`o2j lint`: an external linter's findings (advisory unless run with --strict)."""
+
+    tool: str
+    ruleset: str
+    specs: list[str] = Field(default_factory=list)
+    status: Literal["ok", "unavailable"]
+    detail: str | None = None
+    summary: ValidationSummary
+    findings: list[Finding] = Field(default_factory=list)
+    gate: Gate
+
+    @staticmethod
+    def build(
+        *,
+        tool: str,
+        ruleset: str,
+        specs: list[str],
+        findings: list[Finding],
+        status: Literal["ok", "unavailable"],
+        detail: str | None = None,
+    ) -> LintReport:
+        errors = sum(1 for f in findings if f.severity == "error")
+        return LintReport(
+            tool=tool,
+            ruleset=ruleset,
+            specs=specs,
+            status=status,
+            detail=detail,
+            summary=ValidationSummary(
+                errors=errors,
+                warnings=sum(1 for f in findings if f.severity == "warn"),
+                infos=sum(1 for f in findings if f.severity == "info"),
+            ),
+            findings=findings,
+            gate=Gate(
+                passed=status == "ok" and errors == 0,
+                failed_on="error" if errors else ("unavailable" if status != "ok" else None),
+            ),
+        )
+
+
 # --------------------------------------------------------------------------------------
 # S2 Normalize
 # --------------------------------------------------------------------------------------

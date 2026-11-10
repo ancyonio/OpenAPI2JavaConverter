@@ -1,0 +1,34 @@
+# yamllint: formatting and syntax of the YAML this repository owns - specs in openapi/,
+# o2j.yaml, workflows, rulesets. Runs from pre-commit and the O2J Lint workflow.
+extends: default
+
+ignore: |
+  tests/corpus/
+  tests/trigger-evals/
+  work/
+  generated_Code/*/target/
+  *.egg-info/
+  o2j/templates/
+
+rules:
+  # Long descriptions and URLs are normal in OpenAPI documents; wrapping them hurts more.
+  line-length:
+    max: 120
+    level: warning
+  # `---` is optional and absent from most files here.
+  document-start: disable
+  # Git stores LF; a Windows checkout with core.autocrlf shows CRLF. Line endings are git's
+  # job, not the linter's, or every Windows contributor's hook would fail.
+  new-lines: disable
+  # GitHub Actions' `on:` key is not a boolean.
+  truthy:
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  indentation:
+    spaces: consistent
+    indent-sequences: consistent
+  braces:
+    max-spaces-inside: 1
+  brackets:
+    max-spaces-inside: 1

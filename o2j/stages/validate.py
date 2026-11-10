@@ -1,24 +1,31 @@
-"""S1 Validate - structural, version, semantic and house-standard checks.
+"""S1 Validate - structural, version, schema, semantic, house-standard and breaking checks.
 
-Four passes, each gating the next, so a document with a parse error never produces a hundred
-downstream findings about a tree that could not be read in the first place.
+Passes run in order: parse, version, the official OpenAPI JSON Schema (FR-V-03), semantics and
+house standards, then - when a baseline is configured - breaking changes against the previous
+release (FR-V-11). A document that cannot be parsed never produces a hundred downstream
+findings about a tree that could not be read in the first place.
 """
 
 from __future__ import annotations
 
+import json
+import tempfile
 from pathlib import Path
+from typing import Any
 
 from ruamel.yaml.comments import CommentedMap
 
 from o2j.config import JAVA_TIER1, SUPPORTED_OPENAPI_VERSIONS, O2JConfig
-from o2j.models import Finding, Location, ValidationReport
-from o2j.rules import naming, semantic
+from o2j.errors import O2JError
+from o2j.models import Finding, Location, Severity, ValidationReport
+from o2j.rules import breaking, naming, semantic, structural
 from o2j.specdoc import (
     detect_version,
     load_spec,
     sha256_file,
     version_family,
 )
+from o2j.stages.normalize import normalize
 from o2j.workdir import WorkDir
 
 
@@ -26,11 +33,18 @@ def validate(
     cfg: O2JConfig,
     spec_path: str | Path | None = None,
     work: WorkDir | None = None,
+    *,
+    baseline: str | Path | None = None,
+    check_breaking: bool = True,
 ) -> ValidationReport:
     """Validate a spec and return the report. Does not raise on findings.
 
     The caller decides what to do about the gate: the CLI exits 3, while an agent may want to
     read the findings and repair the spec.
+
+    ``baseline`` overrides ``validation.breaking_change_baseline``. ``check_breaking=False``
+    skips the breaking-change pass, for the re-check of a canonical document whose source has
+    already been compared.
     """
     work = work or WorkDir()
     path = (
@@ -62,6 +76,9 @@ def validate(
     # is about to create correctly. For 2.0 input the 3.x passes are deferred to the canonical
     # document, which is what code is generated from and therefore what must meet the standard.
     family = version_family(detected)
+    if family != "unknown":
+        findings.extend(structural.check_schema(doc, file, family))
+
     if family == "2.0":
         findings.extend(semantic.check_injection(doc, file))
         findings.append(
@@ -82,6 +99,34 @@ def validate(
     elif family != "unknown":
         findings.extend(semantic.run_all(doc, file, detected, cfg))
         findings.extend(naming.run_all(doc, file, cfg))
+
+    if check_breaking and family != "unknown":
+        # The baseline is looked up by the name of the spec the user pointed at, not by the
+        # name of the quarantined copy (spec.raw.yaml).
+        named = Path(spec_path) if spec_path is not None else None
+        if named is None:
+            try:
+                named = cfg.default_spec()
+            except O2JError:
+                named = None
+        previous = cfg.baseline_for(named, baseline)
+        if previous is not None:
+            findings.extend(_check_breaking(cfg, previous, path, file))
+        elif baseline is not None:
+            findings.append(
+                Finding(
+                    id="O2J-V-011",
+                    rule="breaking-change-baseline-missing",
+                    severity="info",
+                    message=(
+                        f"No baseline for {file} under {baseline}; treated as a new spec, so "
+                        "nothing was compared."
+                    ),
+                    pointer="#",
+                    location=Location(file=file),
+                    auto_fixable=False,
+                )
+            )
 
     return ValidationReport.build(
         spec_hash=sha256_file(path),
@@ -187,11 +232,18 @@ def _check_target_tier(cfg: O2JConfig) -> list[Finding]:
 
 def to_sarif(report: ValidationReport, spec_file: str) -> dict[str, object]:
     """Render the report as SARIF so findings appear in GitHub code scanning (FR-V-12)."""
+    return findings_to_sarif(report.findings, spec_file)
+
+
+def findings_to_sarif(
+    findings: list[Finding], spec_file: str, tool_name: str = "o2j"
+) -> dict[str, object]:
+    """SARIF 2.1.0 for any list of findings (validation, or an external linter's)."""
     level = {"error": "error", "warn": "warning", "info": "note"}
     rules: dict[str, dict[str, object]] = {}
     results: list[dict[str, object]] = []
 
-    for f in report.findings:
+    for f in findings:
         rules.setdefault(
             f.rule,
             {
@@ -231,7 +283,7 @@ def to_sarif(report: ValidationReport, spec_file: str) -> dict[str, object]:
             {
                 "tool": {
                     "driver": {
-                        "name": "o2j",
+                        "name": tool_name,
                         "informationUri": "https://github.com/acme/o2j",
                         "rules": list(rules.values()),
                     }
@@ -240,3 +292,56 @@ def to_sarif(report: ValidationReport, spec_file: str) -> dict[str, object]:
             }
         ],
     }
+
+
+def _check_breaking(cfg: O2JConfig, previous: Path, current: Path, file: str) -> list[Finding]:
+    """FR-V-11: diff the canonical forms of ``previous`` and ``current``.
+
+    Both are normalized into throwaway directories first, so a Swagger 2.0 or 3.0 baseline is
+    compared with a 3.1 successor like for like, and the user's work directory is untouched.
+    """
+    canonical: list[dict[str, Any]] = []
+    for source in (previous, current):
+        with tempfile.TemporaryDirectory(prefix="o2j-breaking-") as tmp:
+            try:
+                result = normalize(cfg, spec_path=source, work=WorkDir(tmp))
+                loaded = load_spec(Path(result.canonical_path))
+            except O2JError as exc:
+                return [
+                    Finding(
+                        id="O2J-V-011",
+                        rule="breaking-change-check-skipped",
+                        severity="warn",
+                        message=(
+                            f"Breaking-change check did not run: {source.name} could not be "
+                            f"normalized ({exc.message})."
+                        ),
+                        pointer="#",
+                        location=Location(file=file),
+                        auto_fixable=False,
+                    )
+                ]
+            canonical.append(json.loads(json.dumps(loaded, default=str)))
+
+    configured = cfg.validation.breaking_change_severity
+    severity: Severity = configured or (
+        "error" if cfg.service.profile == "production" else "warn"
+    )
+    findings: list[Finding] = []
+    for change in breaking.compare(canonical[0], canonical[1]):
+        findings.append(
+            Finding(
+                id="O2J-V-011",
+                rule=f"breaking-{change.rule}",
+                severity=severity if change.breaking else "warn",
+                message=f"{change.message} (compared with {previous.name})",
+                pointer=change.pointer,
+                location=Location(file=file),
+                remediation=(
+                    "Restore the previous behaviour, or publish this as a new major API version "
+                    "and update the baseline once consumers have moved."
+                ),
+                auto_fixable=False,
+            )
+        )
+    return findings

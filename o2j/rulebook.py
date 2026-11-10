@@ -261,10 +261,75 @@ RULEBOOK: dict[str, RuleDoc] = {
         ),
         auto_fixable=True,
     ),
+    "openapi-schema-invalid": RuleDoc(
+        rule="openapi-schema-invalid",
+        summary="The document does not match the official OpenAPI JSON Schema for its version.",
+        why=(
+            "openapi-generator reads the spec through swagger-parser, which is lenient: a "
+            "misspelt keyword (`paramters`), a `responses` written as a list or a parameter "
+            "without `in` is often skipped rather than rejected. The generated service then "
+            "lacks the parameter or response the author thought they declared, and nothing "
+            "fails until a client calls it. Checking against the published schema catches the "
+            "whole class before generation."
+        ),
+        bad="responses:\n  - '200': {description: OK}",
+        good="responses:\n  '200':\n    description: OK",
+    ),
+    "openapi-schema-deferred": RuleDoc(
+        rule="openapi-schema-deferred",
+        summary="Schema check postponed to the canonical document (OpenAPI 3.2 input).",
+        why=(
+            "No published validator covers OpenAPI 3.2 yet. The document is downgraded to 3.1.2 "
+            "by normalization, and `o2j run` re-validates that canonical document - including "
+            "the schema check - before anything is generated from it, so nothing escapes the "
+            "check; it just happens one stage later."
+        ),
+    ),
+    "openapi-schema-unavailable": RuleDoc(
+        rule="openapi-schema-unavailable",
+        summary="The OpenAPI JSON Schema check could not run.",
+        why=(
+            "`openapi-spec-validator`, which carries the official schemas, is not importable. "
+            "Reported as a warning rather than silently skipped because 'we could not check' "
+            "must never look like 'it passed': structural errors would reach the generator. "
+            "Reinstall o2j with `pip install -e .`."
+        ),
+    ),
+    "breaking-change": RuleDoc(
+        rule="breaking-change",
+        summary="A change that breaks clients of the previously released spec (O2J-V-011).",
+        why=(
+            "Clients were built against the baseline spec. Removing an operation, a success "
+            "status or a response property, widening a response type (a field that can now be "
+            "null), adding a required request field or parameter, narrowing an accepted type, "
+            "removing an accepted enum value or tightening a limit all make existing, correct "
+            "clients fail. A removed request property counts too: the generated service rejects "
+            "unknown properties, so clients that still send it get 400. Either keep the old "
+            "behaviour or ship a new major version and move the baseline once consumers have "
+            "migrated. Errors in the production profile, warnings otherwise."
+        ),
+        bad="# v1: required: [id, status]\n# v2: required: [id]       # status may now be absent",
+        good="# keep `status` required, or publish /v2 and keep /v1 until clients move",
+    ),
+    "breaking-change-check-skipped": RuleDoc(
+        rule="breaking-change-check-skipped",
+        summary="The breaking-change comparison could not run.",
+        why=(
+            "Both the baseline and the current spec are normalized to OpenAPI 3.1 before they "
+            "are compared, so that a 2.0 or 3.0 baseline is compared like for like. If either "
+            "cannot be normalized (for instance a 3.2 construct with no 3.1 equivalent), the "
+            "comparison is skipped and reported, because an unchecked release must not look "
+            "like a compatible one."
+        ),
+    ),
 }
 
 
 def explain(rule_or_id: str) -> RuleDoc | None:
     """Look up a rule by name, by O2J id, or by a ``rule:variant`` form."""
     key = rule_or_id.split(":", 1)[0] if ":" in rule_or_id else rule_or_id
-    return RULEBOOK.get(rule_or_id) or RULEBOOK.get(key)
+    found = RULEBOOK.get(rule_or_id) or RULEBOOK.get(key)
+    if found is None and key.startswith("breaking-"):
+        # breaking-operation-removed, breaking-response-type-widened, ... share one rationale
+        found = RULEBOOK.get("breaking-change")
+    return found

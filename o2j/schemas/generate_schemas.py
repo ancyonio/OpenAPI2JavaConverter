@@ -22,6 +22,7 @@ from o2j.models import (
     DowngradeReport,
     GenerationPlan,
     GenerationResult,
+    LintReport,
     Manifest,
     NormalizationResult,
     QualityReport,
@@ -33,6 +34,7 @@ from o2j.models import (
 ARTIFACTS: dict[str, type[BaseModel]] = {
     "o2j-config": O2JConfig,
     "validation-report": ValidationReport,
+    "lint-report": LintReport,
     "downgrade-report": DowngradeReport,
     "sanitization-report": SanitizationReport,
     "normalization-result": NormalizationResult,

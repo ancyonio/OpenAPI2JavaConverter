@@ -36,6 +36,8 @@ versions:
   springdoc_boot_4: 3.0.3        # Spring Boot 4 line (used by the spring-boot-4 profile)
   owasp_dependency_check: 11.1.0
   cyclonedx: 2.9.1
+  spectral_cli: 6.11.1           # `o2j lint` runs Spectral via npx at this version
+  sonar_maven_plugin: 4.0.0.4121 # `o2j quality` when quality.sonar.enabled
 
 openapi:
   # A single spec file, or a folder. `o2j run` converts every *.yaml / *.yml in the folder into
@@ -50,9 +52,15 @@ openapi:
   max_document_bytes: 10485760   # 10 MiB
 
 validation:
+  # House rules for `o2j lint` (Spectral or vacuum) and, via .spectral.yaml, for editors.
+  # `o2j validate` - the blocking gate - implements the same rules in Python.
   spectral_ruleset: o2j/rules/spectral/house-api.yaml
   fail_on: error                 # error | warn
-  breaking_change_baseline: null # path to the previous spec, or null
+  # The released spec(s) to check for breaking changes (O2J-V-011): a file, or a folder with
+  # a same-named file per spec in openapi/ (e.g. a checkout of the last release's openapi/).
+  # null = off. `--baseline <path>` on `o2j validate` / `o2j run` overrides it per run.
+  breaking_change_baseline: null
+  breaking_change_severity: null # error | warn | null (= error in production, warn otherwise)
   require_security: true
   require_pagination_on_collections: true
   require_problem_details: true
@@ -101,9 +109,13 @@ quality:
     archunit: true
     owasp_dependency_check: true
     gitleaks: true
+  # SonarQube / SonarCloud, run by `o2j quality` after the build. The token is read from
+  # $SONAR_TOKEN, never from this file. Fails on the server's quality gate.
   sonar:
     enabled: false
     project_key: ""
+    host_url: ""                 # empty: $SONAR_HOST_URL, else https://sonarcloud.io
+    organization: ""             # SonarCloud only
 
 # TIBCO EMS request/reply queues this service replaces. When enabled, o2j validates the mapping
 # against the spec at plan time and generates an EMS bridge (EmsBridge) that keeps legacy

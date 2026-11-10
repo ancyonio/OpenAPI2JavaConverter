@@ -16,6 +16,7 @@ Run the full O2J pipeline in order, enforcing every stage gate. Stop at the firs
 and report rather than working around it.
 
 Report at the end:
+
 - operations converted, and any skipped with the reason
 - files created, by layer
 - line coverage, branch coverage, mutation score
